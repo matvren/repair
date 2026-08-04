@@ -52,11 +52,22 @@ jobs:
 
       - name: Generate APK via PWABuilder CloudAPK
         run: |
-          curl -sS -X POST https://pwabuilder-cloudapk.azurewebsites.net/generateAppPackage \
-            -H "Content-Type: application/json" \
-            --data-binary @request.json \
-            -o package.zip
-          echo "Response size: $(stat -c%s package.zip) bytes"
+          for i in 1 2 3 4 5; do
+            curl -sSL -X POST https://pwabuilder-cloudapk.azurewebsites.net/generateAppPackage \
+              -H "Content-Type: application/json" \
+              --data-binary @request.json \
+              -o package.zip
+            if head -c2 package.zip | grep -q "PK"; then
+              echo "SUCCESS on attempt $i ($(stat -c%s package.zip) bytes)"
+              break
+            fi
+            echo "attempt $i returned: $(cat package.zip)"
+            sleep 15
+          done
+          if ! head -c2 package.zip | grep -q "PK"; then
+            echo "CloudAPK failed: $(cat package.zip)"
+            exit 1
+          fi
           file package.zip
 
       - name: Extract package
