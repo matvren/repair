@@ -1,0 +1,82 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build CloudAPK request
+        run: |
+          python3 - <<'EOF'
+          import json
+          base = "https://matvren.github.io/repair"
+          req = {
+            "pwaUrl": base + "/",
+            "webManifestUrl": base + "/manifest.json",
+            "host": base,
+            "startUrl": "/",
+            "name": "Repair Shop Ledger",
+            "launcherName": "Repairs",
+            "packageId": "com.matvren.repairshop",
+            "appVersion": "1.0.0",
+            "appVersionCode": 1,
+            "display": "standalone",
+            "fallbackType": "webview",
+            "backgroundColor": "#ffffff",
+            "themeColor": "#0f0f0f",
+            "iconUrl": base + "/icon-512.png",
+            "maskableIconUrl": base + "/icon-maskable-512.png",
+            "enableNotifications": False,
+            "enableSiteSettingsShortcut": False,
+            "includeSourceCode": False,
+            "signingMode": "new",
+            "signing": {
+              "alias": "repair",
+              "keyPassword": "repairshop2026",
+              "storePassword": "repairshop2026",
+              "fullName": "Repair Shop",
+              "organization": "Repair Shop",
+              "countryCode": "US"
+            }
+          }
+          with open("request.json", "w") as f:
+              f.write(json.dumps(req))
+          print("request.json written")
+          EOF
+
+      - name: Generate APK via PWABuilder CloudAPK
+        run: |
+          curl -sS -X POST https://pwabuilder-cloudapk.azurewebsites.net/generateAppPackage \
+            -H "Content-Type: application/json" \
+            --data-binary @request.json \
+            -o package.zip
+          echo "Response size: $(stat -c%s package.zip) bytes"
+          file package.zip
+
+      - name: Extract package
+        run: |
+          mkdir -p out
+          python3 - <<'EOF'
+          import zipfile
+          with zipfile.ZipFile("package.zip") as z:
+              z.extractall("out")
+          print("Extracted files:")
+          import os
+          for root, dirs, files in os.walk("out"):
+              for f in files:
+                  p = os.path.join(root, f)
+                  print(f"{p} ({os.path.getsize(p)} bytes)")
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-package
+          path: |
+            package.zip
+            out/
