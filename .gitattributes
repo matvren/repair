@@ -1,0 +1,6 @@
+* -filter
+*.png binary
+*.keystore binary
+*.html text eol=lf
+*.json text eol=lf
+*.js text eol=lf
