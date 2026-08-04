@@ -31,6 +31,7 @@ jobs:
             "backgroundColor": "#ffffff",
             "themeColor": "#0f0f0f",
             "navigationColor": "#ffffff",
+            "splashScreenFadeOutDuration": 300,
             "iconUrl": base + "/icon-512.png",
             "maskableIconUrl": base + "/icon-maskable-512.png",
             "enableNotifications": False,
