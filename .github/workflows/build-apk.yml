@@ -30,6 +30,7 @@ jobs:
             "fallbackType": "webview",
             "backgroundColor": "#ffffff",
             "themeColor": "#0f0f0f",
+            "navigationColor": "#ffffff",
             "iconUrl": base + "/icon-512.png",
             "maskableIconUrl": base + "/icon-maskable-512.png",
             "enableNotifications": False,
@@ -42,6 +43,7 @@ jobs:
               "storePassword": "repairshop2026",
               "fullName": "Repair Shop",
               "organization": "Repair Shop",
+              "organizationalUnit": "Dev",
               "countryCode": "US"
             }
           }
