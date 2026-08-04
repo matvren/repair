@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.matvren.repairshop",
+    "sha256_cert_fingerprints": ["63:AF:A9:8C:DA:0B:CA:7E:A5:AE:42:60:11:D2:61:E6:0A:B2:7E:C4:90:96:AE:A4:AF:18:F5:5E:25:9F:5A:C6"]
+  }
+}]

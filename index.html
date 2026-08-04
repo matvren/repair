@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Repair Shop Ledger</title>
+<title>CyTECH</title>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Repair Shop">
+<meta name="apple-mobile-web-app-title" content="CyTECH">
 <meta name="theme-color" id="themeColor" content="#ffffff">
 <link rel="icon" id="favicon" href="">
 <link rel="apple-touch-icon" id="appleIcon" href="">
@@ -309,7 +309,7 @@ dialog::backdrop{background:var(--backdrop)}
     </div>
     <nav class="navlist" id="sideNav"></nav>
     <div class="nav-spacer"></div>
-    <div class="nav-footer">v2.6 &middot; Stored on this device only.</div>
+    <div class="nav-footer">v2.7 &middot; Stored on this device only.</div>
   </aside>
 
   <div class="main">
@@ -438,7 +438,7 @@ function loadDB(){
   var db = JSON.parse(localStorage.getItem(DB_KEY) || 'null');
   if(!db){
     db = {
-      settings:{ shopName:'Shop Ledger', address:'', phone:'', currency:'$', nextJob:1, nextPurchase:1 },
+      settings:{ shopName:'CyTECH', address:'', phone:'', currency:'$', nextJob:1, nextPurchase:1 },
       jobs:[], purchases:[], stock:[]
     };
     localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -659,7 +659,7 @@ function activeGroup(v){ if(v.indexOf('job')===0) return 'jobsList'; if(v.indexO
 function renderNav(){
   var sn = document.getElementById('sideNav');
   sn.innerHTML = NAV_ITEMS.map(function(n){ return '<button class="navitem '+(activeGroup(STATE.view)===n.v?'active':'')+'" onclick="navigate(\''+n.v+'\')">'+icon(n.icon,17)+'<span>'+n.label+'</span></button>'; }).join('');
-  document.getElementById('sbShopName').textContent = DB.settings.shopName || 'Shop Ledger';
+  document.getElementById('sbShopName').textContent = DB.settings.shopName || 'CyTECH';
   var bn = document.getElementById('bottomNav');
   bn.innerHTML = NAV_ITEMS.map(function(n){ return '<button class="'+(activeGroup(STATE.view)===n.v?'active':'')+'" onclick="navigate(\''+n.v+'\')">'+icon(n.icon,19)+'<span>'+n.label.split(' ')[0]+'</span></button>'; }).join('');
 }
@@ -1471,7 +1471,7 @@ function renderSettings(c){
   '</div>';
 }
 function saveSettings(){
-  DB.settings.shopName = document.getElementById('s_name').value.trim() || 'Shop Ledger';
+  DB.settings.shopName = document.getElementById('s_name').value.trim() || 'CyTECH';
   DB.settings.address = document.getElementById('s_address').value.trim();
   DB.settings.phone = document.getElementById('s_phone').value.trim();
   DB.settings.currency = document.getElementById('s_currency').value.trim() || '$';
@@ -1693,12 +1693,18 @@ function printPurchase(id){
 function makeIcon(size){
   var c = document.createElement('canvas'); c.width = c.height = size;
   var x = c.getContext('2d');
-  x.fillStyle = '#0f0f0f';
-  if(x.roundRect){ x.beginPath(); x.roundRect(0,0,size,size,size*0.16); x.fill(); } else { x.fillRect(0,0,size,size); }
-  x.fillStyle = '#ffffff';
-  var p = new Path2D('M13 2 3 14h7l-1 8 10-12h-7l1-8z');
-  var s = size/512;
-  x.save(); x.scale(s,s); x.translate(137,106); x.scale(14.9,14.9); x.fill(p); x.restore();
+  var s = size/512; x.scale(s,s);
+  var g = x.createLinearGradient(0,0,0,512); g.addColorStop(0,'#1e1e22'); g.addColorStop(1,'#0a0a0c');
+  x.fillStyle = g;
+  if(x.roundRect){ x.beginPath(); x.roundRect(0,0,512,512,110); x.fill(); } else { x.fillRect(0,0,512,512); }
+  x.fillStyle = 'rgba(0,0,0,.35)';
+  x.font = 'bold 300px "Arial Black", Arial, sans-serif';
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText('C', 256, 256);
+  x.fillStyle = '#f5f5f7';
+  x.fillText('C', 256, 246);
+  x.fillStyle = '#14b8a6';
+  if(x.roundRect){ x.beginPath(); x.roundRect(122,244,268,58,29); x.fill(); } else { x.fillRect(122,244,268,58); }
   return c.toDataURL('image/png');
 }
 function setupPWA(){
@@ -1709,8 +1715,8 @@ function setupPWA(){
     var link = document.getElementById('manifestLink');
     if(link && location.protocol.indexOf('http') !== 0){
       var manifest = {
-        name: DB.settings.shopName || 'Repair Shop Ledger',
-        short_name: 'Repairs',
+        name: DB.settings.shopName || 'CyTECH',
+        short_name: 'CyTECH',
         description: 'Repair shop ledger - repair jobs and purchase receipts',
         start_url: '.', scope: '.', display: 'standalone',
         background_color: '#ffffff', theme_color: isDark() ? '#0b0b0b' : '#ffffff',

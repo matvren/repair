@@ -11,21 +11,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Rebuild keystore from secret
+        run: |
+          echo "${{ secrets.REPAIR_KEYSTORE }}" | base64 -d > signing.keystore
+          echo "keystore bytes: $(stat -c%s signing.keystore)"
+
       - name: Build CloudAPK request
         run: |
           python3 - <<'EOF'
-          import json
-          base = "https://matvren.github.io/repair"
+          import json, base64
+          ks = base64.b64encode(open("signing.keystore", "rb").read()).decode()
+          base = "https://matvren.github.io"
           req = {
             "pwaUrl": base + "/",
             "webManifestUrl": base + "/manifest.json",
             "host": base,
             "startUrl": "/",
-            "name": "Repair Shop Ledger",
-            "launcherName": "Repairs",
+            "name": "CyTECH",
+            "launcherName": "CyTECH",
             "packageId": "com.matvren.repairshop",
             "appVersion": "1.0.0",
-            "appVersionCode": 1,
+            "appVersionCode": 2,
             "display": "standalone",
             "fallbackType": "webview",
             "backgroundColor": "#ffffff",
@@ -37,15 +43,16 @@ jobs:
             "enableNotifications": False,
             "enableSiteSettingsShortcut": False,
             "includeSourceCode": False,
-            "signingMode": "new",
+            "signingMode": "mine",
             "signing": {
               "alias": "repair",
-              "keyPassword": "repairshop2026",
-              "storePassword": "repairshop2026",
+              "keyPassword": "${{ secrets.REPAIR_KEYSTORE_PASS }}",
+              "storePassword": "${{ secrets.REPAIR_KEYSTORE_PASS }}",
               "fullName": "Repair Shop",
               "organization": "Repair Shop",
               "organizationalUnit": "Dev",
-              "countryCode": "US"
+              "countryCode": "US",
+              "file": "data:application/octet-stream;base64," + ks
             }
           }
           with open("request.json", "w") as f:
@@ -77,11 +84,9 @@ jobs:
         run: |
           mkdir -p out
           python3 - <<'EOF'
-          import zipfile
+          import zipfile, os
           with zipfile.ZipFile("package.zip") as z:
               z.extractall("out")
-          print("Extracted files:")
-          import os
           for root, dirs, files in os.walk("out"):
               for f in files:
                   p = os.path.join(root, f)
