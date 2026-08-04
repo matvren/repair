@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>CyTECH</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Repair Shop Ledger</title>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="CyTECH">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Repair Shop">
 <meta name="theme-color" id="themeColor" content="#ffffff">
 <link rel="icon" id="favicon" href="">
 <link rel="apple-touch-icon" id="appleIcon" href="">
@@ -107,7 +107,11 @@ a{color:inherit}
 /* ---------- CALENDAR ---------- */
 .cal-head{display:flex;align-items:center;gap:6px;margin-bottom:10px}
 .cal-title{font-weight:800;font-size:16px;flex:1;text-align:center}
-.cal-year-select{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);color:var(--ink);padding:6px 8px;font-size:13px;font-weight:700}
+.cal-title-btn{display:flex;align-items:center;justify-content:center;gap:6px;flex:1;background:transparent;border:1px solid transparent;border-radius:var(--radius-sm);color:var(--ink);font-weight:800;font-size:16px;padding:8px 6px;cursor:pointer}
+.cal-title-btn:hover{border-color:var(--line);background:var(--surface-2)}
+.cal-picker-panel{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px}
+.cal-month-chip{border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);padding:9px 4px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;color:var(--ink-soft)}
+.cal-month-chip.active{background:var(--btn-bg);color:var(--btn-ink);border-color:var(--btn-bg)}
 .cal-yr-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-bottom:14px}
 .cal-yr-chip{border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);padding:6px;text-align:left;cursor:pointer;font-size:10px;color:var(--ink-soft);font-weight:700}
 .cal-yr-chip.active{border-color:var(--accent);color:var(--ink)}
@@ -309,7 +313,7 @@ dialog::backdrop{background:var(--backdrop)}
     </div>
     <nav class="navlist" id="sideNav"></nav>
     <div class="nav-spacer"></div>
-    <div class="nav-footer">v2.7 &middot; Stored on this device only.</div>
+    <div class="nav-footer">v2.6 &middot; Stored on this device only.</div>
   </aside>
 
   <div class="main">
@@ -352,7 +356,7 @@ dialog::backdrop{background:var(--backdrop)}
   <div class="modal-head">Profit breakdown</div>
   <div class="modal-body" id="profitDialogBody"></div>
   <div class="modal-foot">
-    <button class="btn" onclick="navigate('calendar')">Calendar</button>
+    <button class="btn" onclick="document.getElementById('profitDialog').close();navigate('calendar')">Calendar</button>
     <button class="btn btn-primary" onclick="document.getElementById('profitDialog').close()">Close</button>
   </div>
 </dialog>
@@ -438,7 +442,7 @@ function loadDB(){
   var db = JSON.parse(localStorage.getItem(DB_KEY) || 'null');
   if(!db){
     db = {
-      settings:{ shopName:'CyTECH', address:'', phone:'', currency:'$', nextJob:1, nextPurchase:1 },
+      settings:{ shopName:'Shop Ledger', address:'', phone:'', currency:'$', nextJob:1, nextPurchase:1 },
       jobs:[], purchases:[], stock:[]
     };
     localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -659,7 +663,7 @@ function activeGroup(v){ if(v.indexOf('job')===0) return 'jobsList'; if(v.indexO
 function renderNav(){
   var sn = document.getElementById('sideNav');
   sn.innerHTML = NAV_ITEMS.map(function(n){ return '<button class="navitem '+(activeGroup(STATE.view)===n.v?'active':'')+'" onclick="navigate(\''+n.v+'\')">'+icon(n.icon,17)+'<span>'+n.label+'</span></button>'; }).join('');
-  document.getElementById('sbShopName').textContent = DB.settings.shopName || 'CyTECH';
+  document.getElementById('sbShopName').textContent = DB.settings.shopName || 'Shop Ledger';
   var bn = document.getElementById('bottomNav');
   bn.innerHTML = NAV_ITEMS.map(function(n){ return '<button class="'+(activeGroup(STATE.view)===n.v?'active':'')+'" onclick="navigate(\''+n.v+'\')">'+icon(n.icon,19)+'<span>'+n.label.split(' ')[0]+'</span></button>'; }).join('');
 }
@@ -1471,7 +1475,7 @@ function renderSettings(c){
   '</div>';
 }
 function saveSettings(){
-  DB.settings.shopName = document.getElementById('s_name').value.trim() || 'CyTECH';
+  DB.settings.shopName = document.getElementById('s_name').value.trim() || 'Shop Ledger';
   DB.settings.address = document.getElementById('s_address').value.trim();
   DB.settings.phone = document.getElementById('s_phone').value.trim();
   DB.settings.currency = document.getElementById('s_currency').value.trim() || '$';
@@ -1501,10 +1505,12 @@ function wipeData(){
 }
 
 /* ============================= CALENDAR ============================= */
-var CAL = { y: 0, m: 0, day: null };
+var CAL = { y: 0, m: 0, day: null, pickerOpen: false };
 var CAL_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 var CAL_DOW = ['S','M','T','W','T','F','S'];
 function calToday(){ var d = new Date(); return d.getFullYear() + '-' + (d.getMonth()+1 < 10 ? '0' : '') + (d.getMonth()+1) + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate(); }
+function calTogglePicker(){ CAL.pickerOpen = !CAL.pickerOpen; render(); }
+function calJumpToday(){ var d = new Date(); CAL.y = d.getFullYear(); CAL.m = d.getMonth(); CAL.day = calToday(); CAL.pickerOpen = false; render(); }
 function calYears(){
   var set = {};
   set[new Date().getFullYear()] = true;
@@ -1513,7 +1519,7 @@ function calYears(){
   DB.purchases.forEach(function(p){ set[+(p.date||'').slice(0,4)] = true; });
   return Object.keys(set).map(Number).sort(function(a,b){ return b-a; });
 }
-function calSelectMonth(y, m){ CAL.y = y; CAL.m = m; CAL.day = null; render(); }
+function calSelectMonth(y, m){ CAL.y = y; CAL.m = m; CAL.day = null; CAL.pickerOpen = false; render(); }
 function calSelectDay(day){ CAL.day = CAL.day === day ? null : day; render(); }
 function calMonthProfitRow(prefix){
   var sum = 0, n = 0;
@@ -1538,7 +1544,9 @@ function renderCalendar(c){
   var today = calToday();
 
   var years = calYears();
-  var yearOpts = years.map(function(y){ return '<option value="'+y+'"'+(y===CAL.y?' selected':'')+'>'+y+'</option>'; }).join('');
+  var monthGrid = CAL_MONTHS.map(function(name, i){
+    return '<button class="cal-month-chip'+(i===CAL.m?' active':'')+'" onclick="calSelectMonth('+CAL.y+','+i+')">'+name.slice(0,3)+'</button>';
+  }).join('');
 
   var strip = years.map(function(y){
     var yrSum = 0;
@@ -1600,10 +1608,11 @@ function renderCalendar(c){
   '<div class="card card-pad" style="max-width:820px">'+
     '<div class="cal-head">'+
       '<button class="btn" onclick="calSelectMonth('+(CAL.m===0?CAL.y-1:CAL.y)+','+(CAL.m===0?11:CAL.m-1)+')">'+icon('back',15)+'</button>'+
-      '<div class="cal-title">'+CAL_MONTHS[CAL.m]+' '+CAL.y+'</div>'+
-      '<select class="cal-year-select" onchange="calSelectMonth(+this.value,'+CAL.m+')">'+yearOpts+'</select>'+
+      '<button class="cal-title-btn" onclick="calTogglePicker()">'+CAL_MONTHS[CAL.m]+' '+CAL.y+icon('chevron',13)+'</button>'+
+      '<button class="btn btn-sm" onclick="calJumpToday()">Today</button>'+
       '<button class="btn" onclick="calSelectMonth('+(CAL.m===11?CAL.y+1:CAL.y)+','+(CAL.m===11?0:CAL.m+1)+')">'+icon('right',15)+'</button>'+
     '</div>'+
+    (CAL.pickerOpen ? '<div class="cal-picker-panel">'+monthGrid+'</div>' : '')+
     '<div class="cal-yr-strip">'+strip+'</div>'+
     '<div class="stats-grid" style="margin-bottom:14px">'+
       '<div class="stat-card"><div class="stat-num '+(monthStat.sum>=0?'num-pos':'num-neg')+'">'+fmtMoney(monthStat.sum)+'</div><div class="stat-label">Profit '+CAL_MONTHS[CAL.m].slice(0,3)+'</div></div>'+
@@ -1693,18 +1702,12 @@ function printPurchase(id){
 function makeIcon(size){
   var c = document.createElement('canvas'); c.width = c.height = size;
   var x = c.getContext('2d');
-  var s = size/512; x.scale(s,s);
-  var g = x.createLinearGradient(0,0,0,512); g.addColorStop(0,'#1e1e22'); g.addColorStop(1,'#0a0a0c');
-  x.fillStyle = g;
-  if(x.roundRect){ x.beginPath(); x.roundRect(0,0,512,512,110); x.fill(); } else { x.fillRect(0,0,512,512); }
-  x.fillStyle = 'rgba(0,0,0,.35)';
-  x.font = 'bold 300px "Arial Black", Arial, sans-serif';
-  x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.fillText('C', 256, 256);
-  x.fillStyle = '#f5f5f7';
-  x.fillText('C', 256, 246);
-  x.fillStyle = '#14b8a6';
-  if(x.roundRect){ x.beginPath(); x.roundRect(122,244,268,58,29); x.fill(); } else { x.fillRect(122,244,268,58); }
+  x.fillStyle = '#0f0f0f';
+  if(x.roundRect){ x.beginPath(); x.roundRect(0,0,size,size,size*0.16); x.fill(); } else { x.fillRect(0,0,size,size); }
+  x.fillStyle = '#ffffff';
+  var p = new Path2D('M13 2 3 14h7l-1 8 10-12h-7l1-8z');
+  var s = size/512;
+  x.save(); x.scale(s,s); x.translate(137,106); x.scale(14.9,14.9); x.fill(p); x.restore();
   return c.toDataURL('image/png');
 }
 function setupPWA(){
@@ -1715,13 +1718,19 @@ function setupPWA(){
     var link = document.getElementById('manifestLink');
     if(link && location.protocol.indexOf('http') !== 0){
       var manifest = {
-        name: DB.settings.shopName || 'CyTECH',
-        short_name: 'CyTECH',
-        description: 'Repair shop ledger - repair jobs and purchase receipts',
-        start_url: '.', scope: '.', display: 'standalone',
+        id: '.',
+        name: DB.settings.shopName || 'Repair Shop Ledger',
+        short_name: 'Repairs',
+        description: 'Offline repair job tickets and purchase receipts, with photos, signatures, calendar and profit tracking.',
+        lang: 'en', dir: 'ltr',
+        start_url: '.', scope: '.',
+        display: 'fullscreen',
+        display_override: ['fullscreen','standalone','minimal-ui','browser'],
+        orientation: 'any',
         background_color: '#ffffff', theme_color: isDark() ? '#0b0b0b' : '#ffffff',
+        categories: ['business','productivity','utilities'],
         icons: [
-          { src: icon192, sizes: '192x192', type: 'image/png' },
+          { src: icon192, sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: icon512, sizes: '512x512', type: 'image/png', purpose: 'any' },
           { src: icon512, sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ]
