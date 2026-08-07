@@ -442,7 +442,7 @@ function loadDB(){
   var db = JSON.parse(localStorage.getItem(DB_KEY) || 'null');
   if(!db){
     db = {
-      settings:{ shopName:'Shop Ledger', address:'', phone:'', currency:'$', nextJob:1, nextPurchase:1 },
+      settings:{ shopName:'CyTECH ELECTRONICS', address:'1st April Avenue, 13A, 5281, Paralimni', phone:'+357 95653344', currency:'€', nextJob:1, nextPurchase:1 },
       jobs:[], purchases:[], stock:[]
     };
     localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -663,7 +663,7 @@ function activeGroup(v){ if(v.indexOf('job')===0) return 'jobsList'; if(v.indexO
 function renderNav(){
   var sn = document.getElementById('sideNav');
   sn.innerHTML = NAV_ITEMS.map(function(n){ return '<button class="navitem '+(activeGroup(STATE.view)===n.v?'active':'')+'" onclick="navigate(\''+n.v+'\')">'+icon(n.icon,17)+'<span>'+n.label+'</span></button>'; }).join('');
-  document.getElementById('sbShopName').textContent = DB.settings.shopName || 'Shop Ledger';
+  document.getElementById('sbShopName').textContent = DB.settings.shopName || 'CyTECH ELECTRONICS';
   var bn = document.getElementById('bottomNav');
   bn.innerHTML = NAV_ITEMS.map(function(n){ return '<button class="'+(activeGroup(STATE.view)===n.v?'active':'')+'" onclick="navigate(\''+n.v+'\')">'+icon(n.icon,19)+'<span>'+n.label.split(' ')[0]+'</span></button>'; }).join('');
 }
@@ -1475,10 +1475,10 @@ function renderSettings(c){
   '</div>';
 }
 function saveSettings(){
-  DB.settings.shopName = document.getElementById('s_name').value.trim() || 'Shop Ledger';
+  DB.settings.shopName = document.getElementById('s_name').value.trim() || 'CyTECH ELECTRONICS';
   DB.settings.address = document.getElementById('s_address').value.trim();
   DB.settings.phone = document.getElementById('s_phone').value.trim();
-  DB.settings.currency = document.getElementById('s_currency').value.trim() || '$';
+  DB.settings.currency = document.getElementById('s_currency').value.trim() || '€';
   saveDB(DB); toast('Settings saved'); render();
 }
 function exportData(){
@@ -1719,7 +1719,7 @@ function setupPWA(){
     if(link && location.protocol.indexOf('http') !== 0){
       var manifest = {
         id: '.',
-        name: DB.settings.shopName || 'Repair Shop Ledger',
+        name: DB.settings.shopName || 'CyTECH ELECTRONICS',
         short_name: 'Repairs',
         description: 'Offline repair job tickets and purchase receipts, with photos, signatures, calendar and profit tracking.',
         lang: 'en', dir: 'ltr',
