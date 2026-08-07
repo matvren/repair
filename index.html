@@ -291,6 +291,11 @@ dialog::backdrop{background:var(--backdrop)}
   padding:11px 18px;border-radius:9px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:999}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+/* ---------- FULL-SCREEN FLIP (F key) ---------- */
+.flipped #app,
+.flipped #bottomNav,
+.flipped dialog{transform:rotate(180deg)}
+
 /* ---------- PRINT ---------- */
 #printFrame{position:absolute;left:-9999px;top:0;width:480px;height:640px;border:0}
 
@@ -466,6 +471,23 @@ function toggleTheme(){
   else if(t==='dark') setTheme('blue');
   else setTheme('dark');
 }
+
+/* ============================= FULL-SCREEN FLIP (F key) ============================= */
+var __FLIPPED = false;
+function toggleFlip(){
+  __FLIPPED = !__FLIPPED;
+  document.documentElement.classList.toggle('flipped', __FLIPPED);
+  toast(__FLIPPED ? 'Screen flipped' : 'Screen restored');
+  requestAnimationFrame(function(){ __redrawPads(); });
+}
+document.addEventListener('keydown', function(e){
+  if((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey){
+    var t = e.target;
+    if(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+    e.preventDefault();
+    toggleFlip();
+  }
+});
 
 /* ============================= DATA LAYER ============================= */
 var DB_KEY = 'repairShopDB_v1';
@@ -783,7 +805,12 @@ function makeSignaturePad(canvas){
   function pos(e){
     var t = e.touches ? e.touches[0] : e;
     var r = canvas.getBoundingClientRect();
-    return { x: t.clientX - r.left, y: t.clientY - r.top };
+    var x = t.clientX - r.left, y = t.clientY - r.top;
+    if(__FLIPPED){
+      x = r.width - x;
+      y = r.height - y;
+    }
+    return { x: x, y: y };
   }
   function start(e){
     e.preventDefault();
