@@ -292,9 +292,15 @@ dialog::backdrop{background:var(--backdrop)}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* ---------- FULL-SCREEN FLIP (F key) ---------- */
-.flipped #app,
-.flipped #bottomNav,
-.flipped dialog{transform:rotate(180deg)}
+html.flipped,html.flipped body{height:100%;overflow:hidden}
+.flipped #flipWrap{
+  transform:rotate(180deg);
+  height:100vh;
+  min-height:100vh;
+  overflow-y:auto;
+}
+.flipped .sidebar{top:auto;bottom:0}
+.flipped .topbar{top:auto;bottom:0}
 
 /* ---------- PRINT ---------- */
 #printFrame{position:absolute;left:-9999px;top:0;width:480px;height:640px;border:0}
@@ -324,6 +330,7 @@ dialog::backdrop{background:var(--backdrop)}
 </head>
 <body>
 
+<div id="flipWrap">
 <div id="app">
   <aside class="sidebar">
     <div class="brand">
@@ -421,6 +428,8 @@ dialog::backdrop{background:var(--backdrop)}
     <button class="btn btn-primary" onclick="addStockItem()">Add item</button>
   </div>
 </dialog>
+
+</div>
 
 <div id="toast"></div>
 <iframe id="printFrame" style="position:absolute;left:-9999px;top:0;width:480px;height:640px;border:0" aria-hidden="true"></iframe>
@@ -742,6 +751,7 @@ window.addEventListener('resize', function(){
 function makeSignaturePad(canvas){
   var ctx = canvas.getContext('2d');
   var INK = '#0f0f0f';
+  var INK_LW = 2.4;
   var S = { w0: 0, h0: 0, strokes: [], img: null };
   var drawing = false;
 
@@ -767,10 +777,12 @@ function makeSignaturePad(canvas){
   function drawStrokes(w, h){
     var m = contentMap(w, h);
     if(!m) return;
+    var lw = INK_LW * m.s;
+    ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     S.strokes.forEach(function(st){
       if(st.p.length === 1){
         ctx.beginPath();
-        ctx.arc(m.ox + st.p[0].x*m.dw, m.oy + st.p[0].y*m.dh, Math.max(1.6, ctx.lineWidth*0.85*m.s), 0, Math.PI*2);
+        ctx.arc(m.ox + st.p[0].x*m.dw, m.oy + st.p[0].y*m.dh, Math.max(1.5, lw*0.85), 0, Math.PI*2);
         ctx.fill();
       } else if(st.p.length > 1){
         ctx.beginPath();
