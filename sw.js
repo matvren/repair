@@ -1,5 +1,5 @@
-var CACHE = 'cytech-v5';
-var ASSETS = ['./', './index.html', './manifest.json', './sw.js', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './html-cytech-logo.png'];
+var CACHE = 'cytech-v6';
+var ASSETS = ['./', './index.html', './manifest.json', './sw.js', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './html-cytech-logo.png', './html-cytech-logo-black.png'];
 self.addEventListener('install', function(e){
   e.waitUntil(caches.open(CACHE).then(function(c){ return c.addAll(ASSETS).catch(function(){}); }).then(function(){ self.skipWaiting(); }));
 });
