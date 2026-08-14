@@ -299,10 +299,13 @@ html.flipped,html.flipped body{height:100%;overflow:hidden}
   transform:rotate(180deg);
   height:100vh;
   min-height:100vh;
-  overflow-y:auto;
+  overflow:hidden;
 }
-.flipped .sidebar{top:auto;bottom:0}
-.flipped .topbar{top:auto;bottom:0}
+.flipped #app{height:100vh;min-height:100vh}
+.flipped .sidebar{position:static;top:auto;bottom:auto;height:100vh;overflow-y:auto}
+.flipped .main{height:100vh;min-height:100vh}
+.flipped .topbar{position:static;top:auto;bottom:auto;flex:0 0 auto}
+.flipped .content{flex:1;min-height:0;overflow-y:auto}
 
 /* ---------- PRINT ---------- */
 #printFrame{position:absolute;left:-9999px;top:0;width:480px;height:640px;border:0}
@@ -1827,3 +1830,4 @@ setThemeColor(); renderThemeBtn(); setupPWA(); render();
 </script>
 </body>
 </html>
+

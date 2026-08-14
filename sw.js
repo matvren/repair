@@ -11,12 +11,11 @@ self.addEventListener('fetch', function(e){
   var url = new URL(e.request.url);
   if(url.origin !== location.origin) return;
   if(e.request.mode === 'navigate'){
-    e.respondWith(caches.match(e.request).then(function(hit){
-      var upd = fetch(e.request).then(function(r){
-        if(r && r.status === 200){ var c = r.clone(); caches.open(CACHE).then(function(x){ x.put(e.request, c); }); }
-        return r;
-      }).catch(function(){ return hit; });
-      return hit || upd;
+    e.respondWith(fetch(e.request).then(function(r){
+      if(r && r.status === 200){ var c = r.clone(); caches.open(CACHE).then(function(x){ x.put(e.request, c); }); }
+      return r;
+    }).catch(function(){
+      return caches.match(e.request);
     }));
     return;
   }
@@ -27,3 +26,4 @@ self.addEventListener('fetch', function(e){
     });
   }));
 });
+
