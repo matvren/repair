@@ -294,12 +294,16 @@ dialog::backdrop{background:var(--backdrop)}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* ---------- CUSTOM SCROLLBAR ---------- */
+html::-webkit-scrollbar,body::-webkit-scrollbar{width:12px;height:12px}
+html::-webkit-scrollbar-track,body::-webkit-scrollbar-track{background:var(--surface)}
+html::-webkit-scrollbar-thumb,body::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:8px;border:3px solid var(--surface)}
+html::-webkit-scrollbar-thumb:hover,body::-webkit-scrollbar-thumb:hover{background:var(--ink-soft)}
 *::-webkit-scrollbar{width:10px;height:10px}
 *::-webkit-scrollbar-track{background:transparent}
-*::-webkit-scrollbar-thumb{background:rgba(127,127,127,.38);border-radius:8px;border:2px solid transparent;background-clip:content-box}
-*::-webkit-scrollbar-thumb:hover{background:rgba(127,127,127,.6);background-clip:content-box}
+*::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:8px;border:2px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-thumb:hover{background:var(--ink-soft);background-clip:content-box}
 *::-webkit-scrollbar-corner{background:transparent}
-*{scrollbar-width:thin;scrollbar-color:rgba(127,127,127,.5) transparent}
+*{scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
 
 /* ---------- FULL-SCREEN FLIP (F key) ---------- */
 html.flipped,html.flipped body{height:100%;overflow:hidden}
@@ -352,12 +356,12 @@ html.flipped,html.flipped body{height:100%;overflow:hidden}
       </div>
       <div>
         <div class="brand-name" id="sbShopName">Shop Ledger</div>
-        <div class="brand-sub">Repairs &amp; Trade-ins</div>
+        <div class="brand-sub">ALL IN ONE SOLUTION</div>
       </div>
     </div>
     <nav class="navlist" id="sideNav"></nav>
     <div class="nav-spacer"></div>
-    <div class="nav-footer">v2.8 &middot; Stored on this device only.</div>
+    <div class="nav-footer">v2.9 &middot; Stored on this device only.</div>
   </aside>
 
   <div class="main">
