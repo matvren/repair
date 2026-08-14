@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CyTECH ELECTRONICS</title>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -361,7 +361,7 @@ html.flipped,html.flipped body{height:100%;overflow:hidden}
     </div>
     <nav class="navlist" id="sideNav"></nav>
     <div class="nav-spacer"></div>
-    <div class="nav-footer">v3.0 &middot; Stored on this device only.</div>
+    <div class="nav-footer">v3.1 &middot; Syncs to cloud when signed in.</div>
   </aside>
 
   <div class="main">
@@ -452,27 +452,6 @@ html.flipped,html.flipped body{height:100%;overflow:hidden}
 <iframe id="printFrame" style="position:absolute;left:-9999px;top:0;width:480px;height:640px;border:0" aria-hidden="true"></iframe>
 
 <script>
-/* ===== service worker (self-registering; only runs inside SW context) ===== */
-if (typeof document === 'undefined') {
-  var CACHE = 'repairshop-v1';
-  self.addEventListener('install', function(e){
-    e.waitUntil(caches.open(CACHE).then(function(c){ return c.addAll(['./']); }).catch(function(){}).then(function(){ return self.skipWaiting(); }));
-  });
-  self.addEventListener('activate', function(e){ e.waitUntil(self.clients.claim()); });
-  self.addEventListener('fetch', function(e){
-    if (e.request.method !== 'GET') return;
-    var url = new URL(e.request.url);
-    if (url.origin !== location.origin) return;
-    if (e.request.mode === 'navigate') {
-      e.respondWith(fetch(e.request).then(function(r){ var c = r.clone(); caches.open(CACHE).then(function(ca){ ca.put('./', c); }); return r; }).catch(function(){ return caches.match('./'); }));
-      return;
-    }
-    e.respondWith(caches.match(e.request).then(function(r){ return r || fetch(e.request); }));
-  });
-}
-</script>
-
-<script>
 if (typeof document !== 'undefined') {
 /* ============================= THEME ============================= */
 var _theme = (function(){ try{ var t = localStorage.getItem('rs_theme'); if(t) return t; }catch(e){} return (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'; })();
@@ -517,21 +496,201 @@ document.addEventListener('keydown', function(e){
 
 /* ============================= DATA LAYER ============================= */
 var DB_KEY = 'repairShopDB_v1';
+function normalizeDB(data){
+  if(!data || typeof data !== 'object') return null;
+  data.settings = Object.assign({ shopName:'CyTECH ELECTRONICS', address:'1st April Avenue, 13A, 5281, Paralimni', phone:'+357 95653344', currency:'€', nextJob:1, nextPurchase:1 }, data.settings || {});
+  data.settings.currency = data.settings.currency ? String(data.settings.currency).slice(0,3) : '€';
+  if(!Array.isArray(data.jobs)) data.jobs = [];
+  if(!Array.isArray(data.purchases)) data.purchases = [];
+  if(!Array.isArray(data.stock)) data.stock = [];
+  if(!Array.isArray(data.deletedPkeys)) data.deletedPkeys = [];
+  data.jobs.forEach(function(j){
+    if(!Array.isArray(j.items)) j.items = [];
+    if(!Array.isArray(j.photos)) j.photos = [];
+  });
+  data.purchases.forEach(function(p){
+    if(!Array.isArray(p.items)) p.items = [];
+    if(!Array.isArray(p.photos)) p.photos = [];
+  });
+  return data;
+}
 function loadDB(){
-  var db = JSON.parse(localStorage.getItem(DB_KEY) || 'null');
+  var raw = null;
+  try{ raw = JSON.parse(localStorage.getItem(DB_KEY) || 'null'); }catch(e){ raw = null; }
+  var db = normalizeDB(raw);
   if(!db){
-    db = {
-      settings:{ shopName:'CyTECH ELECTRONICS', address:'1st April Avenue, 13A, 5281, Paralimni', phone:'+357 95653344', currency:'€', nextJob:1, nextPurchase:1 },
-      jobs:[], purchases:[], stock:[]
-    };
+    db = normalizeDB({});
     localStorage.setItem(DB_KEY, JSON.stringify(db));
   }
-  if(!Array.isArray(db.stock)) db.stock = [];
   syncStock(db);
   return db;
 }
-function saveDB(db){ localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+function saveDB(db){ db.updatedAt = Date.now(); localStorage.setItem(DB_KEY, JSON.stringify(db)); scheduleSyncPush(); }
 var DB = loadDB();
+
+/* ============================= CLOUD SYNC (Supabase) ============================= */
+var SB_URL = 'https://hajukwhujrmqcbqcdzia.supabase.co';
+var SB_ANON = 'sb_publishable_gfJ-5x0oCtjJ-hk67yGuUw_YM5tpo5g';
+var SB_TABLE = 'cytech_sync';
+var SB_SESSION_KEY = 'cytech_sb_session_v1';
+var SB_SESSION = null;
+var __sbTimer = null;
+var __sbBusy = false;
+try{ SB_SESSION = JSON.parse(localStorage.getItem(SB_SESSION_KEY) || 'null'); }catch(e){ SB_SESSION = null; }
+function sbSessionString(){ return JSON.stringify(SB_SESSION); }
+function sbSaveSession(){ try{ localStorage.setItem(SB_SESSION_KEY, sbSessionString()); }catch(e){} }
+function sbClearSession(){ SB_SESSION = null; try{ localStorage.removeItem(SB_SESSION_KEY); }catch(e){} }
+function sbHeaders(auth){
+  var h = { 'apikey': SB_ANON, 'Content-Type': 'application/json' };
+  if(auth !== false && SB_SESSION && SB_SESSION.access_token) h['Authorization'] = 'Bearer ' + SB_SESSION.access_token;
+  return h;
+}
+function sbFetch(path, opts){
+  return fetch(SB_URL + path, opts).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(d){ return { status: r.status, ok: r.ok, body: d }; });
+  });
+}
+function sbAuth(path, body, headers){
+  return fetch(SB_URL + path, { method:'POST', headers: headers, body: JSON.stringify(body) }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(d){ return { status: r.status, ok: r.ok, body: d }; });
+  });
+}
+function sbSignup(email, password){
+  return sbAuth('/auth/v1/signup', { email: email, password: password }, sbHeaders(false)).then(function(res){
+    if(!res.ok && !res.body.access_token){ throw new Error(res.body.msg || res.body.error_description || 'Signup failed'); }
+    if(res.body.access_token){
+      SB_SESSION = { access_token: res.body.access_token, refresh_token: res.body.refresh_token, user: res.body.user, updatedAt: Date.now() };
+      sbSaveSession();
+    }
+    return res.body;
+  });
+}
+function sbLogin(email, password){
+  return sbAuth('/auth/v1/token?grant_type=password', { email: email, password: password }, sbHeaders(false)).then(function(res){
+    if(!res.body.access_token){ throw new Error(res.body.msg || res.body.error_description || 'Login failed'); }
+    SB_SESSION = { access_token: res.body.access_token, refresh_token: res.body.refresh_token, user: res.body.user, updatedAt: Date.now() };
+    sbSaveSession();
+    return SB_SESSION;
+  });
+}
+function sbLogout(){ sbClearSession(); toast('Signed out'); render(); }
+function sbLoginUI(){
+  var email = document.getElementById('sb_email').value.trim();
+  var pass = document.getElementById('sb_pass').value;
+  var st = document.getElementById('sb_status');
+  if(!email || !pass){ st.textContent = 'Enter email and password.'; return; }
+  st.textContent = 'Signing in...';
+  sbLogin(email, pass).then(function(){
+    st.textContent = 'Signed in.';
+    scheduleSyncPush();
+    render();
+  }).catch(function(err){ st.textContent = err.message; });
+}
+function sbSignupUI(){
+  var email = document.getElementById('sb_email').value.trim();
+  var pass = document.getElementById('sb_pass').value;
+  var st = document.getElementById('sb_status');
+  if(!email || !pass){ st.textContent = 'Enter email and password.'; return; }
+  if(pass.length < 6){ st.textContent = 'Password must be at least 6 characters.'; return; }
+  st.textContent = 'Creating account...';
+  sbSignup(email, pass).then(function(body){
+    if(SB_SESSION && SB_SESSION.access_token){
+      st.textContent = 'Account created.';
+      scheduleSyncPush();
+      render();
+    } else {
+      st.textContent = 'Account created. Check your email to confirm, then sign in.';
+    }
+  }).catch(function(err){ st.textContent = err.message; });
+}
+function sbRestoreSession(){
+  if(!SB_SESSION || !SB_SESSION.access_token) return;
+  sbApi('/rest/v1/' + SB_TABLE + '?select=payload,updated_at&limit=1').then(function(res){
+    if(!res.ok){ throw new Error('session'); }
+    var row = (res.body && res.body[0]) ? res.body[0] : null;
+    var remoteAt = row ? new Date(row.updated_at).getTime() : 0;
+    var localAt = Number(DB.updatedAt) || 0;
+    if(row && remoteAt > localAt && !(localAt === 0 && sbLocalHasData())){
+      DB = normalizeDB(row.payload);
+      localStorage.setItem(DB_KEY, JSON.stringify(DB));
+      render();
+    }
+  }).catch(function(){});
+}
+function sbRefresh(){
+  if(!SB_SESSION || !SB_SESSION.refresh_token) return Promise.reject(new Error('No session'));
+  return sbAuth('/auth/v1/token?grant_type=refresh_token', { refresh_token: SB_SESSION.refresh_token }, sbHeaders(false)).then(function(res){
+    if(!res.body.access_token){ sbClearSession(); throw new Error('Session expired'); }
+    SB_SESSION.access_token = res.body.access_token;
+    SB_SESSION.refresh_token = res.body.refresh_token || SB_SESSION.refresh_token;
+    SB_SESSION.updatedAt = Date.now();
+    sbSaveSession();
+  });
+}
+function sbApi(path, opts){
+  opts = opts || {};
+  opts.headers = Object.assign(sbHeaders(), opts.headers || {});
+  var attempt = function(){ return sbFetch(path, opts).then(function(res){
+    if(res.status === 401 && SB_SESSION){ return sbRefresh().then(attempt).catch(function(){ return res; }); }
+    return res;
+  }); };
+  return attempt();
+}
+function sbPull(){
+  return sbApi('/rest/v1/' + SB_TABLE + '?select=payload,updated_at&limit=1').then(function(res){
+    if(!res.ok) throw new Error(res.body.message || ('Sync table error (' + res.status + ')'));
+    return (res.body && res.body[0]) ? res.body[0] : null;
+  });
+}
+function sbPush(){
+  if(!SB_SESSION || !SB_SESSION.access_token) return Promise.resolve();
+  var payload = JSON.stringify(DB);
+  if(payload.length > 1800000) return Promise.reject(new Error('Data too large to sync (over 1.8MB). Export a backup instead.'));
+  var row = { user_id: SB_SESSION.user.id, payload: DB, updated_at: new Date(DB.updatedAt || Date.now()).toISOString() };
+  return sbApi('/rest/v1/' + SB_TABLE + '?on_conflict=user_id', {
+    method: 'POST',
+    headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(row)
+  }).then(function(res){
+    if(!res.ok && res.status !== 201) throw new Error(res.body.message || ('Sync push failed (' + res.status + ')'));
+  });
+}
+function scheduleSyncPush(){
+  if(!SB_SESSION || !SB_SESSION.access_token) return;
+  if(__sbTimer) clearTimeout(__sbTimer);
+  __sbTimer = setTimeout(function(){ __sbTimer = null; syncNow(true); }, 1200);
+}
+function sbLocalHasData(){
+  return (DB.jobs && DB.jobs.length) || (DB.purchases && DB.purchases.length) || (DB.stock && DB.stock.length);
+}
+function syncNow(silent){
+  if(!SB_SESSION || !SB_SESSION.access_token){ if(!silent) toast('Not signed in'); return; }
+  if(__sbBusy) return;
+  __sbBusy = true;
+  sbPull().then(function(row){
+    var remoteAt = row ? new Date(row.updated_at).getTime() : 0;
+    var localAt = Number(DB.updatedAt) || 0;
+    var adopt = false;
+    if(row && remoteAt > localAt){
+      adopt = !(localAt === 0 && sbLocalHasData());
+    }
+    if(adopt){
+      DB = normalizeDB(row.payload);
+      localStorage.setItem(DB_KEY, JSON.stringify(DB));
+      if(!silent) toast('Downloaded latest data from cloud');
+      render();
+      __sbBusy = false;
+    } else {
+      sbPush().then(function(){
+        if(!silent) toast('Synced to cloud');
+        __sbBusy = false;
+      }).catch(function(err){ __sbBusy = false; if(!silent) toast(err.message || 'Sync failed'); });
+    }
+  }).catch(function(err){
+    __sbBusy = false;
+    if(!silent) toast(err.message || 'Sync failed');
+  });
+}
 
 function isLightInk(url, cb){
   var im = new Image();
@@ -646,7 +805,7 @@ function showProfitDialog(){
   var entries = profitEntries();
   var total = entries.reduce(function(s, e){ return s + e.amount; }, 0);
   var rows = entries.slice().reverse().map(function(e){
-    var t = e.type === 'repair' ? 'Repair job' : 'Sold item';
+    var t = e.type === 'repair' ? 'Repair revenue' : 'Sold item';
     var cls = e.type === 'repair' ? 'repair' : 'sold';
     return '<div class="act-row">'+
       '<span class="act-badge '+cls+'">'+t+'</span>'+
@@ -655,22 +814,26 @@ function showProfitDialog(){
   }).join('');
   document.getElementById('profitDialogBody').innerHTML =
     '<div class="stats-grid" style="margin-bottom:10px">'+
-      '<div class="stat-card"><div class="stat-num '+(total>=0?'num-pos':'num-neg')+'">'+fmtMoney(total)+'</div><div class="stat-label">Total profit</div></div>'+
-      '<div class="stat-card"><div class="stat-num">'+entries.filter(function(e){ return e.type==='repair'; }).length+'</div><div class="stat-label">Repair jobs</div></div>'+
+      '<div class="stat-card"><div class="stat-num '+(total>=0?'num-pos':'num-neg')+'">'+fmtMoney(total)+'</div><div class="stat-label">Total income</div></div>'+
+      '<div class="stat-card"><div class="stat-num">'+entries.filter(function(e){ return e.type==='repair'; }).length+'</div><div class="stat-label">Repairs</div></div>'+
       '<div class="stat-card"><div class="stat-num">'+entries.filter(function(e){ return e.type==='sold-item'; }).length+'</div><div class="stat-label">Items sold</div></div>'+
     '</div>'+
     '<div class="card card-pad" style="max-height:340px;overflow:auto">'+
-      (rows || '<div class="empty-note">No profit yet. Profit comes from sold stock items and repair jobs that have been picked up.</div>')+
+      (rows || '<div class="empty-note">No income yet. Income comes from sold stock items and repairs that have been picked up.</div>')+
     '</div>'+
-    '<p style="font-size:11px;color:var(--ink-soft);margin-top:8px">Sold item = sale price &minus; cost paid. Repair = deposit + final payment, counted on the pickup date.</p>';
+    '<p style="font-size:11px;color:var(--ink-soft);margin-top:8px">Sold item = sale price &minus; cost paid. Repair = deposit + final payment (revenue; parts and labor costs are not deducted), counted on the pickup date.</p>';
   document.getElementById('profitDialog').showModal();
 }
 
 function syncStock(db){
   var changed = false;
+  if(!Array.isArray(db.deletedPkeys)) db.deletedPkeys = [];
+  var validKeys = {};
   db.purchases.forEach(function(p){
     (p.items||[]).forEach(function(it, idx){
       var key = p.id + '_' + idx;
+      validKeys[key] = true;
+      if(db.deletedPkeys.indexOf(key) >= 0) return;
       var found = db.stock.filter(function(s){ return s.pkey === key; })[0];
       if(found){
         if(found.name !== it.name || (found.serial||'') !== (it.serial||'') || Number(found.pricePaid) !== Number(it.price||0)){
@@ -687,13 +850,23 @@ function syncStock(db){
       }
     });
   });
+  var before = db.stock.length;
+  db.stock = db.stock.filter(function(s){
+    var m = /^(.+)_(\d+)$/.exec(s.pkey || '');
+    if(!m) return true;
+    return validKeys[m[0]] === true;
+  });
+  if(db.stock.length !== before) changed = true;
   if(changed) saveDB(db);
 }
 
 function uid(){ return 'id'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function fmtMoney(n){ n = Number(n)||0; return DB.settings.currency + n.toFixed(2); }
 function fmtDate(d){ if(!d) return '—'; var dt=new Date(d+'T00:00:00'); if(isNaN(dt)) return d; return dt.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
-function todayStr(){ return new Date().toISOString().slice(0,10); }
+function todayStr(){
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
 function pad4(n){ return String(n).padStart(4,'0'); }
 
 /* ============================= ICONS ============================= */
@@ -941,7 +1114,8 @@ function fileToCompressedDataURL(file, maxDim, quality){
 function photoStripHTML(photos, editable){
   var html = '<div class="photo-strip">';
   photos.forEach(function(p,i){
-    html += '<div class="photo-thumb"><img src="'+p+'" onclick="openImg(\''+p.replace(/'/g,"\\'")+'\')">'+(editable?'<button class="rm" onclick="removePhoto('+i+',event)">'+icon('close',11)+'</button>':'')+'</div>';
+    var u = safeURL(p);
+    html += '<div class="photo-thumb"><img src="'+escapeHTML(u)+'" onclick="openImg(this.src)">'+(editable?'<button class="rm" onclick="removePhoto('+i+',event)">'+icon('close',11)+'</button>':'')+'</div>';
   });
   if(editable){
     html += '<label class="photo-add">'+icon('camera',20)+'Add<input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="addPhotos(this.files)"></label>';
@@ -1034,7 +1208,7 @@ function renderDashboard(c){
       '<div class="stat-card"><div class="stat-num">'+inProgress+'</div><div class="stat-label">In progress</div></div>'+
       '<div class="stat-card"><div class="stat-num">'+readyPickup+'</div><div class="stat-label">Ready for pickup</div></div>'+
       '<div class="stat-card"><div class="stat-num">'+fmtMoney(owed)+'</div><div class="stat-label">Balance owed</div></div>'+
-      '<div class="stat-card clickable" onclick="showProfitDialog()"><div class="stat-num '+(tp>=0?'num-pos':'')+'">'+fmtMoney(tp)+'</div><div class="stat-label">Total profit</div></div>'+
+      '<div class="stat-card clickable" onclick="showProfitDialog()"><div class="stat-num '+(tp>=0?'num-pos':'')+'">'+fmtMoney(tp)+'</div><div class="stat-label">Total income</div></div>'+
       '<div class="stat-card"><div class="stat-num">'+fmtMoney(stockValue)+'</div><div class="stat-label">Stock value</div></div>'+
       '<div class="stat-card"><div class="stat-num">'+todayPur+'</div><div class="stat-label">Purchases today</div></div>'+
     '</div>'+
@@ -1071,6 +1245,14 @@ function purStubHTML(p){
     '<div class="stub-price">'+fmtMoney(total)+'</div></div>';
 }
 function escapeHTML(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }); }
+function safeURL(u){
+  if(typeof u !== 'string') return '';
+  if(u.indexOf('data:image/') === 0) return u.slice(0, 2000000);
+  if(u.indexOf('http://') === 0 || u.indexOf('https://') === 0){
+    try{ return new URL(u).href.slice(0, 2000000); }catch(e){ return ''; }
+  }
+  return '';
+}
 
 /* ============================= JOBS LIST ============================= */
 var JOB_FILTER = { q:'', status:'all' };
@@ -1209,10 +1391,10 @@ function renderJobDetail(c, id){
     '<tbody>'+job.items.map(function(i){ return '<tr><td>'+escapeHTML(i.name)+'</td><td>'+escapeHTML(i.model||'—')+'</td><td style="text-align:left">'+escapeHTML(i.problem||'—')+'</td></tr>'; }).join('')+'</tbody></table>'+
     (job.notes?'<div class="section-title">Notes</div><p style="font-size:13.5px;color:var(--ink-soft);margin-bottom:16px">'+escapeHTML(job.notes)+'</p>':'')+
     '<div class="section-title">Photos</div>'+
-    '<div class="gallery">'+(job.photos.length? job.photos.map(function(p){ return '<img src="'+p+'" onclick="openImg(\''+p.replace(/'/g,"\\'")+'\')">'; }).join('') : '<div class="empty-note">No photos attached.</div>')+'</div>'+
+    '<div class="gallery">'+(job.photos.length? job.photos.map(function(p){ var u=safeURL(p); return u?'<img src="'+escapeHTML(u)+'" onclick="openImg(this.src)">':''; }).join('') : '<div class="empty-note">No photos attached.</div>')+'</div>'+
     '<div class="form-grid">'+
-      '<div><div class="section-title">Intake signature</div>'+(job.signatureIntake?'<div class="sig-preview" style="background-image:url(\''+job.signatureIntake+'\')"></div>':'<div class="empty-note">Not signed.</div>')+'</div>'+
-      '<div><div class="section-title">Pickup signature</div>'+(job.signaturePickup?'<div class="sig-preview" style="background-image:url(\''+job.signaturePickup+'\')"></div>':'<div class="empty-note">Not picked up yet.</div>')+'</div>'+
+      '<div><div class="section-title">Intake signature</div>'+(job.signatureIntake?'<div class="sig-preview" style="background-image:url(\''+escapeHTML(safeURL(job.signatureIntake))+'\')"></div>':'<div class="empty-note">Not signed.</div>')+'</div>'+
+      '<div><div class="section-title">Pickup signature</div>'+(job.signaturePickup?'<div class="sig-preview" style="background-image:url(\''+escapeHTML(safeURL(job.signaturePickup))+'\')"></div>':'<div class="empty-note">Not picked up yet.</div>')+'</div>'+
     '</div>'+
   '</div>';
 }
@@ -1349,9 +1531,9 @@ function renderPurchaseDetail(c, id){
     '<table class="items-table"><thead><tr><th>Item</th><th>Serial number</th><th>Price</th></tr></thead>'+
     '<tbody>'+pur.items.map(function(i){ return '<tr><td>'+escapeHTML(i.name)+'</td><td style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">'+escapeHTML(i.serial||'—')+'</td><td>'+fmtMoney(i.price)+'</td></tr>'; }).join('')+'</tbody></table>'+
     '<div class="section-title">Photos</div>'+
-    '<div class="gallery">'+(pur.photos.length? pur.photos.map(function(p){ return '<img src="'+p+'" onclick="openImg(\''+p.replace(/'/g,"\\'")+'\')">'; }).join('') : '<div class="empty-note">No photos attached.</div>')+'</div>'+
+    '<div class="gallery">'+(pur.photos.length? pur.photos.map(function(p){ var u=safeURL(p); return u?'<img src="'+escapeHTML(u)+'" onclick="openImg(this.src)">':''; }).join('') : '<div class="empty-note">No photos attached.</div>')+'</div>'+
     '<div class="section-title">Seller signature</div>'+
-    (pur.signature?'<div class="sig-preview" style="max-width:340px;background-image:url(\''+pur.signature+'\')"></div>':'<div class="empty-note">Not signed.</div>')+
+    (pur.signature?'<div class="sig-preview" style="max-width:340px;background-image:url(\''+escapeHTML(safeURL(pur.signature))+'\')"></div>':'<div class="empty-note">Not signed.</div>')+
   '</div>';
 }
 function deletePurchase(id){
@@ -1440,6 +1622,11 @@ function undoStockSale(){
 }
 function deleteStockItem(){
   if(!confirm('Delete this stock item? This cannot be undone.')) return;
+  var it = DB.stock.find(function(x){ return x.id===__stockSel; });
+  if(it && it.pkey){
+    if(!Array.isArray(DB.deletedPkeys)) DB.deletedPkeys = [];
+    if(DB.deletedPkeys.indexOf(it.pkey) < 0) DB.deletedPkeys.push(it.pkey);
+  }
   DB.stock = DB.stock.filter(function(x){ return x.id!==__stockSel; });
   saveDB(DB); document.getElementById('stockDialog').close();
   toast('Stock item deleted'); render();
@@ -1558,8 +1745,26 @@ function renderSettings(c){
     '<div class="btn-row" style="margin-top:6px"><button class="btn btn-primary" onclick="saveSettings()">'+icon('check',15)+'Save settings</button></div>'+
   '</div>'+
   '<div class="card card-pad" style="max-width:560px;margin-top:16px">'+
+    '<div class="section-title">Cloud sync &amp; account</div>'+
+    (SB_SESSION && SB_SESSION.access_token
+      ? '<p style="font-size:13px;color:var(--ink-soft);margin-bottom:12px">Signed in as <b>'+escapeHTML(SB_SESSION.user && SB_SESSION.user.email ? SB_SESSION.user.email : 'user')+'</b>. Records are automatically synced to the cloud and pulled on startup.</p>'+
+        '<div class="btn-row">'+
+          '<button class="btn btn-primary" onclick="syncNow()">'+icon('check',15)+'Sync now</button>'+
+          '<button class="btn" onclick="sbLogout()">Sign out</button>'+
+        '</div>'
+      : '<p style="font-size:13px;color:var(--ink-soft);margin-bottom:12px">Sign in to back up records to the cloud and sync them across devices.</p>'+
+        '<div class="field"><label>Email</label><input class="input" type="email" id="sb_email" placeholder="you@shop.com" autocomplete="email"></div>'+
+        '<div class="field"><label>Password</label><input class="input" type="password" id="sb_pass" placeholder="••••••••" autocomplete="current-password"></div>'+
+        '<div class="btn-row">'+
+          '<button class="btn btn-primary" onclick="sbLoginUI()">'+icon('check',15)+'Sign in</button>'+
+          '<button class="btn" onclick="sbSignupUI()">Create account</button>'+
+        '</div>'+
+        '<p id="sb_status" style="font-size:12px;color:var(--ink-soft);margin-top:8px"></p>'
+    )+
+  '</div>'+
+  '<div class="card card-pad" style="max-width:560px;margin-top:16px">'+
     '<div class="section-title">Data</div>'+
-    '<p style="font-size:13px;color:var(--ink-soft);margin-bottom:12px">All records are stored only on this device. Export a backup regularly.</p>'+
+    '<p style="font-size:13px;color:var(--ink-soft);margin-bottom:12px">Records are stored on this device and, when signed in, synced to the cloud. Export a backup regularly as an extra safety net.</p>'+
     '<div class="btn-row">'+
       '<button class="btn" onclick="exportData()">Export backup (.json)</button>'+
       '<label class="btn">Import backup<input type="file" accept="application/json" style="display:none" onchange="importData(this.files[0])"></label>'+
@@ -1586,8 +1791,10 @@ function importData(file){
   reader.onload = function(e){
     try{
       var data = JSON.parse(e.target.result);
-      if(!data.jobs || !data.purchases || !data.settings) throw 0;
-      DB = data; saveDB(DB); toast('Backup imported'); navigate('dashboard');
+      if(!data || typeof data !== 'object' || !data.jobs || !data.purchases || !data.settings) throw 0;
+      DB = normalizeDB(data);
+      syncStock(DB);
+      saveDB(DB); toast('Backup imported'); navigate('dashboard');
     }catch(err){ toast('Invalid backup file'); }
   };
   reader.readAsText(file);
@@ -1709,13 +1916,13 @@ function renderCalendar(c){
     (CAL.pickerOpen ? '<div class="cal-picker-panel">'+monthGrid+'</div>' : '')+
     '<div class="cal-yr-strip">'+strip+'</div>'+
     '<div class="stats-grid" style="margin-bottom:14px">'+
-      '<div class="stat-card"><div class="stat-num '+(monthStat.sum>=0?'num-pos':'num-neg')+'">'+fmtMoney(monthStat.sum)+'</div><div class="stat-label">Profit '+CAL_MONTHS[CAL.m].slice(0,3)+'</div></div>'+
+      '<div class="stat-card"><div class="stat-num '+(monthStat.sum>=0?'num-pos':'num-neg')+'">'+fmtMoney(monthStat.sum)+'</div><div class="stat-label">Income '+CAL_MONTHS[CAL.m].slice(0,3)+'</div></div>'+
       '<div class="stat-card"><div class="stat-num">'+repairsInMonth+'</div><div class="stat-label">Repairs done</div></div>'+
       '<div class="stat-card"><div class="stat-num">'+soldInMonth+'</div><div class="stat-label">Items sold</div></div>'+
       '<div class="stat-card"><div class="stat-num">'+fmtMoney(spentInMonth)+'</div><div class="stat-label">Parts bought</div></div>'+
     '</div>'+
     '<div class="cal-grid">'+CAL_DOW.map(function(d){ return '<div class="cal-dow">'+d+'</div>'; }).join('')+cells+'</div>'+
-    '<p style="font-size:11px;color:var(--ink-soft);margin-top:10px">Profit counts sold items (sale price &minus; cost) and repairs when picked up (deposit + final payment). Green amounts are profit, brown is money spent on parts that day.</p>'+
+    '<p style="font-size:11px;color:var(--ink-soft);margin-top:10px">Income counts sold items (sale price &minus; cost = profit) and repairs when picked up (deposit + final payment = repair revenue; parts and labor not deducted). Green amounts are income, brown is money spent on parts that day.</p>'+
   '</div>'+
   selHTML;
 }
@@ -1772,7 +1979,7 @@ function printJob(id){
     '<div class="money"><b>Total needed:</b> '+fmtMoney(job.priceNeeded)+'</div>'+
     '<div class="total">'+(job.status==='pickedup' && balance===0 ? 'Paid in full' : 'Balance due: '+fmtMoney(balance))+'</div>'+
     (job.notes?'<div class="row"><b>Notes:</b> '+escapeHTML(job.notes)+'</div>':'')+
-    (job.signatureIntake?'<div class="sig"><div class="sig-label">Customer signature</div><img src="'+job.signatureIntake+'"></div>':'')+
+    (job.signatureIntake?'<div class="sig"><div class="sig-label">Customer signature</div><img src="'+escapeHTML(safeURL(job.signatureIntake))+'"></div>':'')+
     '<div class="foot">'+escapeHTML(DB.settings.shopName)+' &middot; '+fmtDate(todayStr())+'</div>');
 }
 function printPurchase(id){
@@ -1788,7 +1995,7 @@ function printPurchase(id){
       pur.items.map(function(i){ return '<tr><td>'+escapeHTML(i.name)+'</td><td>'+escapeHTML(i.serial||'—')+'</td><td class="num">'+fmtMoney(i.price)+'</td></tr>'; }).join('')+
     '</table>'+
     '<div class="total">Total paid: '+fmtMoney(total)+'</div>'+
-    (pur.signature?'<div class="sig"><div class="sig-label">Seller signature</div><img src="'+pur.signature+'"></div>':'')+
+    (pur.signature?'<div class="sig"><div class="sig-label">Seller signature</div><img src="'+escapeHTML(safeURL(pur.signature))+'"></div>':'')+
     '<div class="foot">'+escapeHTML(DB.settings.shopName)+' &middot; '+fmtDate(todayStr())+'</div>');
 }
 
@@ -1838,6 +2045,7 @@ function setupPWA(){
 
 /* ============================= INIT ============================= */
 setThemeColor(); renderThemeBtn(); setupPWA(); render();
+sbRestoreSession();
 }
 </script>
 </body>
