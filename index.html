@@ -573,6 +573,48 @@ function sbLogin(email, password){
     return SB_SESSION;
   });
 }
+function sbDownloadCloudBackup(){
+  if(!SB_SESSION || !SB_SESSION.access_token) return toast('Not signed in');
+  toast('Downloading...');
+  sbPull().then(function(row){
+    if(!row || !row.payload){ toast('No cloud backup found'); return; }
+    var blob = new Blob([JSON.stringify(row.payload, null, 2)], {type:'application/json'});
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'shop-ledger-cloud-backup-'+todayStr()+'.json'; a.click();
+    toast('Cloud backup downloaded');
+  }).catch(function(err){ toast(err.message || 'Download failed'); });
+}
+function sbRestoreFromCloud(){
+  if(!SB_SESSION || !SB_SESSION.access_token) return toast('Not signed in');
+  if(!confirm('Replace all data on this device with the cloud backup? Local changes made on this device will be lost.')) return;
+  if(!confirm('Are you absolutely sure?')) return;
+  sbPull().then(function(row){
+    if(!row || !row.payload){ toast('No cloud backup found'); return; }
+    DB = normalizeDB(row.payload);
+    syncStock(DB);
+    saveDB(DB);
+    toast('Restored from cloud');
+    render();
+  }).catch(function(err){ toast(err.message || 'Restore failed'); });
+}
+function sbDeleteCloudSave(){
+  if(!SB_SESSION || !SB_SESSION.access_token) return toast('Not signed in');
+  if(!confirm('Delete the synced records from the cloud? Data on this device stays untouched, but other devices will lose it on their next sync.')) return;
+  if(!confirm('Are you absolutely sure? This cannot be undone.')) return;
+  var filter = SB_SESSION.user && SB_SESSION.user.id ? '?user_id=eq.' + encodeURIComponent(SB_SESSION.user.id) : '';
+  fetch(SB_URL + '/rest/v1/' + SB_TABLE + filter, { method: 'DELETE', headers: sbHeaders() })
+    .then(function(r){
+      if(r.status >= 200 && r.status < 300) return;
+      return r.json().catch(function(){ return {}; }).then(function(d){
+        throw new Error(d.message || ('Delete failed (' + r.status + ')'));
+      });
+    })
+    .then(function(){
+      toast('Cloud save deleted');
+      render();
+    })
+    .catch(function(err){ toast(err.message || 'Delete failed'); });
+}
 function sbLogout(){ sbClearSession(); toast('Signed out'); render(); }
 function sbDeleteAccount(){
   if(!confirm('This will permanently delete your cloud account and the synced records stored in the cloud. Continue?')) return;
@@ -1801,6 +1843,12 @@ function renderSettings(c){
           '<button class="btn btn-primary" onclick="syncNow()">'+icon('check',15)+'Sync now</button>'+
           '<button class="btn" onclick="sbLogout()">Sign out</button>'+
           '<button class="btn" onclick="sbDeleteAccount()">'+icon('trash',15)+'Delete account</button>'+
+        '</div>'+
+        '<div class="section-title" style="margin-top:18px">Cloud data</div>'+
+        '<div class="btn-row">'+
+          '<button class="btn" onclick="sbDownloadCloudBackup()">Download cloud backup (.json)</button>'+
+          '<button class="btn" onclick="sbRestoreFromCloud()">Restore from cloud</button>'+
+          '<button class="btn" onclick="sbDeleteCloudSave()">'+icon('trash',15)+'Delete cloud save</button>'+
         '</div>'
       : '<p style="font-size:13px;color:var(--ink-soft);margin-bottom:12px">Sign in to back up records to the cloud and sync them across devices.</p>'+
         '<div class="field"><label>Email</label><input class="input" type="email" id="sb_email" placeholder="you@shop.com" autocomplete="email"></div>'+
