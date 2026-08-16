@@ -124,6 +124,9 @@ a{color:inherit}
 .stat-num{font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1}
 .num-pos{color:var(--good)}
 .num-neg{color:var(--bad)}
+.dash-section{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:16px}
+.dash-section-title{display:flex;align-items:center;gap:9px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--ink-soft);margin-bottom:12px}
+.dash-dot{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
 
 /* ---------- CALENDAR ---------- */
 .cal-head{display:flex;align-items:center;gap:6px;margin-bottom:10px}
@@ -1330,20 +1333,60 @@ function renderDashboard(c){
   var owed = DB.jobs.filter(function(j){ return j.status!=='pickedup'; }).reduce(function(s,j){ return s+((Number(j.priceNeeded)||0)-(Number(j.priceDeposit)||0)); },0);
   var tp = totalProfit();
   var stockValue = DB.stock.reduce(function(s,x){ return x.status==='in' ? s+(Number(x.pricePaid)||0) : s; },0);
+  var m = todayStr().slice(0,7);
+  var mName = new Date(todayStr()+'T00:00:00').toLocaleDateString(undefined,{month:'long'});
+
+  var repairIncome = 0, repairIncomeM = 0, sellProfit = 0, sellProfitM = 0;
+  profitEntries().forEach(function(e){
+    if(e.type==='repair'){ repairIncome += e.amount; if(e.date.indexOf(m)===0) repairIncomeM += e.amount; }
+    else if(e.type==='sale'){ sellProfit += e.amount; if(e.date.indexOf(m)===0) sellProfitM += e.amount; }
+  });
+  var repairCountM = DB.jobs.filter(function(j){ return j.status==='pickedup' && j.pickedUpDate && j.pickedUpDate.indexOf(m)===0; }).length;
+  var sellsCountM = DB.sales.filter(function(s){ return s.date.indexOf(m)===0; }).length;
+  var purSpent = 0, purSpentM = 0, purCountM = 0;
+  DB.purchases.forEach(function(p){
+    var tot = p.items.reduce(function(s,i){ return s+(Number(i.price)||0); },0);
+    purSpent += tot;
+    if(p.date.indexOf(m)===0){ purSpentM += tot; purCountM++; }
+  });
 
   var recentJobs = DB.jobs.slice().sort(function(a,b){ return b.createdAt-a.createdAt; }).slice(0,5);
   var recentPur = DB.purchases.slice().sort(function(a,b){ return b.createdAt-a.createdAt; }).slice(0,5);
   var recentSales = DB.sales.slice().sort(function(a,b){ return b.createdAt-a.createdAt; }).slice(0,5);
 
+  function stat(n, label, cls){ return '<div class="stat-card"><div class="stat-num '+(cls||'')+'">'+n+'</div><div class="stat-label">'+label+'</div></div>'; }
+  function dashSection(title, color, cards){
+    return '<div class="dash-section"><div class="dash-section-title"><span class="dash-dot" style="background:'+color+'"></span>'+title+'</div>'+
+      '<div class="stats-grid" style="margin-bottom:0">'+cards.join('')+'</div></div>';
+  }
+
   c.innerHTML = ''+
-    '<div class="stats-grid">'+
-      '<div class="stat-card"><div class="stat-num">'+inProgress+'</div><div class="stat-label">In progress</div></div>'+
-      '<div class="stat-card"><div class="stat-num">'+readyPickup+'</div><div class="stat-label">Ready for pickup</div></div>'+
-      '<div class="stat-card"><div class="stat-num">'+fmtMoney(owed)+'</div><div class="stat-label">Balance owed</div></div>'+
-      '<div class="stat-card clickable" onclick="showProfitDialog()"><div class="stat-num '+(tp>=0?'num-pos':'')+'">'+fmtMoney(tp)+'</div><div class="stat-label">Total income</div></div>'+
-      '<div class="stat-card"><div class="stat-num">'+fmtMoney(stockValue)+'</div><div class="stat-label">Stock value</div></div>'+
-      '<div class="stat-card"><div class="stat-num">'+todayPur+'</div><div class="stat-label">Purchases today</div></div>'+
+    '<div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">'+
+      '<div class="stat-card clickable" onclick="showProfitDialog()"><div class="stat-num '+(tp>=0?'num-pos':'num-neg')+'">'+fmtMoney(tp)+'</div><div class="stat-label">Total income (all)</div></div>'+
+      stat(fmtMoney(sellProfit),'Profit from sells','num-pos')+
+      stat(fmtMoney(purSpent),'Spent on purchases','num-neg')+
+      stat(fmtMoney(stockValue),'Stock value')+
     '</div>'+
+    dashSection('Repairs &middot; '+mName,'var(--accent)',[
+      stat(fmtMoney(repairIncomeM),'Repair income this month','num-pos'),
+      stat(fmtMoney(repairIncome),'Total repair income','num-pos'),
+      stat(repairCountM,'Repairs picked up this month'),
+      stat(inProgress,'In progress'),
+      stat(readyPickup,'Ready for pickup'),
+      stat(fmtMoney(owed),'Balance owed')
+    ])+
+    dashSection('Sells &middot; '+mName,'var(--good)',[
+      stat(fmtMoney(sellProfitM),'Sale profit this month','num-pos'),
+      stat(fmtMoney(sellProfit),'Total profit from sells','num-pos'),
+      stat(sellsCountM,'Sells this month'),
+      stat(todaySale,'Sells today')
+    ])+
+    dashSection('Purchases &middot; '+mName,'#b45309',[
+      stat(fmtMoney(purSpentM),'Spent this month','num-neg'),
+      stat(fmtMoney(purSpent),'Total spent on purchases','num-neg'),
+      stat(purCountM,'Purchases this month'),
+      stat(todayPur,'Purchases today')
+    ])+
     '<div class="form-grid">'+
       '<div><div class="section-title">Recent repair jobs<a onclick="navigate(\'jobsList\')">View all</a></div>'+
         '<div class="stub-list">'+(recentJobs.length? recentJobs.map(jobStubHTML).join('') : emptyNote('No repair jobs yet.'))+'</div></div>'+
