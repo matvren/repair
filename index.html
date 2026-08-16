@@ -1473,7 +1473,7 @@ function renderJobForm(c, id){
       '<div class="field"><label>Price paid now (deposit)</label><input class="input" type="number" step="0.01" id="f_priceDeposit" value="'+(editing?job.priceDeposit:'')+'" placeholder="0.00"></div>'+
       '<div class="field"><label>Total price needed</label><input class="input" type="number" step="0.01" id="f_priceNeeded" value="'+(editing?job.priceNeeded:'')+'" placeholder="0.00"></div>'+
       '<div class="field"><label>Final payment (on pickup)</label><input class="input" type="number" step="0.01" id="f_finalPayment" value="'+(editing?(job.finalPayment||''):'')+'" placeholder="0.00"></div>'+
-      '<div class="field"><label>Money spent on parts</label><input class="input" type="number" step="0.01" id="f_partsCost" value="'+(editing?(job.partsCost||''):'')+'" placeholder="0.00"><div style="font-size:11px;color:var(--ink-soft);margin-top:4px">Optional &mdash; deducted from repair profit</div></div>'+
+      (editing?'<div class="field"><label>Money spent on parts</label><input class="input" type="number" step="0.01" id="f_partsCost" value="'+(job.partsCost||'')+'" placeholder="0.00"><div style="font-size:11px;color:var(--ink-soft);margin-top:4px">Optional &mdash; deducted from repair profit</div></div>':'')+
     '</div>'+
     '<div class="field full"><label>Notes</label><textarea class="textarea" id="f_notes" placeholder="Internal notes...">'+(editing?escapeHTML(job.notes||''):'')+'</textarea></div>'+
     '<div class="field full"><label>Photos of the item</label><div id="photoZone">'+photoStripHTML(FORM_PHOTOS,true)+'</div></div>'+
@@ -1512,7 +1512,7 @@ function saveJob(id){
     priceDeposit: document.getElementById('f_priceDeposit').value || 0,
     priceNeeded: document.getElementById('f_priceNeeded').value || 0,
     finalPayment: document.getElementById('f_finalPayment').value || 0,
-    partsCost: document.getElementById('f_partsCost').value || 0,
+    partsCost: (document.getElementById('f_partsCost')||{}).value || 0,
     notes: document.getElementById('f_notes').value.trim(),
     photos: FORM_PHOTOS.slice(),
     signatureIntake: signature
