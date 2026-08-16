@@ -574,6 +574,23 @@ function sbLogin(email, password){
   });
 }
 function sbLogout(){ sbClearSession(); toast('Signed out'); render(); }
+function sbDeleteAccount(){
+  if(!confirm('This will permanently delete your cloud account and the synced records stored in the cloud. Continue?')) return;
+  if(!confirm('Are you absolutely sure? This cannot be undone.')) return;
+  fetch(SB_URL + '/auth/v1/user', { method: 'DELETE', headers: sbHeaders() })
+    .then(function(r){
+      if(r.status >= 200 && r.status < 300) return;
+      return r.json().catch(function(){ return {}; }).then(function(d){
+        throw new Error(d.msg || d.error_description || d.message || ('Delete failed (' + r.status + ')'));
+      });
+    })
+    .then(function(){
+      sbClearSession();
+      toast('Account deleted');
+      render();
+    })
+    .catch(function(err){ toast(err.message || 'Delete failed'); });
+}
 function sbLoginUI(){
   var email = document.getElementById('sb_email').value.trim();
   var pass = document.getElementById('sb_pass').value;
@@ -616,6 +633,39 @@ function sbRestoreSession(){
       render();
     }
   }).catch(function(){});
+}
+function sbHandleConfirmRedirect(){
+  var h = location.hash || '';
+  if(h.indexOf('access_token=') < 0) return;
+  var params = {};
+  h.replace(/^#/, '').split('&').forEach(function(kv){
+    var i = kv.indexOf('=');
+    if(i > 0) params[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1));
+  });
+  try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){}
+  if(params.error){ toast('Confirmation failed: ' + (params.error_description || params.error)); return; }
+  var token = params.access_token;
+  if(!token) return;
+  fetch(SB_URL + '/auth/v1/user', { headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + token } })
+    .then(function(r){ return r.json().catch(function(){ return {}; }); })
+    .then(function(u){
+      SB_SESSION = {
+        access_token: token,
+        refresh_token: params.refresh_token || '',
+        user: (u && u.id) ? u : { id: null, email: null },
+        updatedAt: Date.now()
+      };
+      sbSaveSession();
+      toast('Email confirmed — signed in');
+      render();
+      if(SB_SESSION.user && SB_SESSION.user.id){ scheduleSyncPush(); sbRestoreSession(); }
+    })
+    .catch(function(){
+      SB_SESSION = { access_token: token, refresh_token: params.refresh_token || '', user: { id: null, email: null }, updatedAt: Date.now() };
+      sbSaveSession();
+      toast('Email confirmed — signed in');
+      render();
+    });
 }
 function sbRefresh(){
   if(!SB_SESSION || !SB_SESSION.refresh_token) return Promise.reject(new Error('No session'));
@@ -1751,6 +1801,7 @@ function renderSettings(c){
         '<div class="btn-row">'+
           '<button class="btn btn-primary" onclick="syncNow()">'+icon('check',15)+'Sync now</button>'+
           '<button class="btn" onclick="sbLogout()">Sign out</button>'+
+          '<button class="btn" onclick="sbDeleteAccount()">'+icon('trash',15)+'Delete account</button>'+
         '</div>'
       : '<p style="font-size:13px;color:var(--ink-soft);margin-bottom:12px">Sign in to back up records to the cloud and sync them across devices.</p>'+
         '<div class="field"><label>Email</label><input class="input" type="email" id="sb_email" placeholder="you@shop.com" autocomplete="email"></div>'+
@@ -2045,6 +2096,7 @@ function setupPWA(){
 
 /* ============================= INIT ============================= */
 setThemeColor(); renderThemeBtn(); setupPWA(); render();
+sbHandleConfirmRedirect();
 sbRestoreSession();
 }
 </script>
