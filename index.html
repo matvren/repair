@@ -498,10 +498,11 @@ document.addEventListener('keydown', function(e){
 var DB_KEY = 'repairShopDB_v1';
 function normalizeDB(data){
   if(!data || typeof data !== 'object') return null;
-  data.settings = Object.assign({ shopName:'CyTECH ELECTRONICS', address:'1st April Avenue, 13A, 5281, Paralimni', phone:'+357 95653344', currency:'€', nextJob:1, nextPurchase:1 }, data.settings || {});
+  data.settings = Object.assign({ shopName:'CyTECH ELECTRONICS', address:'1st April Avenue, 13A, 5281, Paralimni', phone:'+357 95653344', currency:'€', nextJob:1, nextPurchase:1, nextSale:1 }, data.settings || {});
   data.settings.currency = data.settings.currency ? String(data.settings.currency).slice(0,3) : '€';
   if(!Array.isArray(data.jobs)) data.jobs = [];
   if(!Array.isArray(data.purchases)) data.purchases = [];
+  if(!Array.isArray(data.sales)) data.sales = [];
   if(!Array.isArray(data.stock)) data.stock = [];
   if(!Array.isArray(data.deletedPkeys)) data.deletedPkeys = [];
   data.jobs.forEach(function(j){
@@ -511,6 +512,10 @@ function normalizeDB(data){
   data.purchases.forEach(function(p){
     if(!Array.isArray(p.items)) p.items = [];
     if(!Array.isArray(p.photos)) p.photos = [];
+  });
+  data.sales.forEach(function(s){
+    if(!Array.isArray(s.items)) s.items = [];
+    if(!Array.isArray(s.photos)) s.photos = [];
   });
   return data;
 }
@@ -967,6 +972,7 @@ function icon(name, size){
     dashboard:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
     wrench:'<path d="M14.7 6.3a4 4 0 1 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.83 2.83-2.12-2.12L14.7 6.3z"/>',
     cart:'<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h2l2.4 12.2a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 7H6"/>',
+    tag:'<path d="M20.6 13.4 11 3.8A2 2 0 0 0 9.6 3H4a1 1 0 0 0-1 1v5.6c0 .5.2 1 .6 1.4l9.6 9.6a2 2 0 0 0 2.8 0l4.6-4.6a2 2 0 0 0 0-2.6z"/><circle cx="7.5" cy="7.5" r="1"/>',
     users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     box:'<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/>',
     gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.9 1.9 0 0 0 .4 2.1l.1.1a2.3 2.3 0 1 1-3.2 3.2l-.1-.1a1.9 1.9 0 0 0-2.1-.4 1.9 1.9 0 0 0-1.1 1.7v.2a2.3 2.3 0 1 1-4.6 0v-.1a1.9 1.9 0 0 0-1.2-1.7 1.9 1.9 0 0 0-2.1.4l-.1.1A2.3 2.3 0 1 1 2.2 16l.1-.1a1.9 1.9 0 0 0 .4-2.1 1.9 1.9 0 0 0-1.7-1.1H1a2.3 2.3 0 1 1 0-4.6h.1a1.9 1.9 0 0 0 1.7-1.2 1.9 1.9 0 0 0-.4-2.1l-.1-.1A2.3 2.3 0 1 1 5.5 1.6l.1.1a1.9 1.9 0 0 0 2.1.4h.1A1.9 1.9 0 0 0 9 .4V.2a2.3 2.3 0 1 1 4.6 0v.1a1.9 1.9 0 0 0 1.1 1.7 1.9 1.9 0 0 0 2.1-.4l.1-.1a2.3 2.3 0 1 1 3.2 3.2l-.1.1a1.9 1.9 0 0 0-.4 2.1v.1a1.9 1.9 0 0 0 1.7 1.1h.2a2.3 2.3 0 1 1 0 4.6h-.1a1.9 1.9 0 0 0-1.7 1.1z" opacity="0"/>',
@@ -996,13 +1002,14 @@ var NAV_ITEMS = [
   {v:'dashboard', label:'Dashboard', icon:'dashboard'},
   {v:'jobsList', label:'Repair Jobs', icon:'wrench'},
   {v:'purchasesList', label:'Purchases', icon:'cart'},
+  {v:'sellsList', label:'Sells', icon:'tag'},
   {v:'stock', label:'Stock', icon:'box'},
   {v:'calendar', label:'Calendar', icon:'calendar'},
   {v:'history', label:'Customers', icon:'users'},
   {v:'settings', label:'Settings', icon:'gear'},
 ];
 function navigate(view, id){ STATE.view=view; STATE.id=id||null; render(); window.scrollTo(0,0); }
-function activeGroup(v){ if(v.indexOf('job')===0) return 'jobsList'; if(v.indexOf('purchase')===0) return 'purchasesList'; return v; }
+function activeGroup(v){ if(v.indexOf('job')===0) return 'jobsList'; if(v.indexOf('purchase')===0) return 'purchasesList'; if(v.indexOf('sale')===0) return 'sellsList'; return v; }
 
 function renderNav(){
   var sn = document.getElementById('sideNav');
@@ -1275,6 +1282,10 @@ function render(){
   if(STATE.view==='purchaseNew') return renderPurchaseForm(c,null);
   if(STATE.view==='purchaseEdit') return renderPurchaseForm(c,STATE.id);
   if(STATE.view==='purchaseDetail') return renderPurchaseDetail(c,STATE.id);
+  if(STATE.view==='sellsList') return renderSellsList(c);
+  if(STATE.view==='saleNew') return renderSaleForm(c,null);
+  if(STATE.view==='saleEdit') return renderSaleForm(c,STATE.id);
+  if(STATE.view==='saleDetail') return renderSaleDetail(c,STATE.id);
   if(STATE.view==='stock') return renderStockList(c);
   if(STATE.view==='calendar') return renderCalendar(c);
   if(STATE.view==='history') return renderHistory(c);
@@ -1283,16 +1294,18 @@ function render(){
 
 /* ============================= DASHBOARD ============================= */
 function renderDashboard(c){
-  setTopbar('Dashboard','','<button class="btn btn-primary" onclick="navigate(\'jobNew\')">'+icon('plus',15)+'New Repair</button><button class="btn" onclick="navigate(\'purchaseNew\')">'+icon('plus',15)+'New Purchase</button>');
+  setTopbar('Dashboard','','<button class="btn btn-primary" onclick="navigate(\'jobNew\')">'+icon('plus',15)+'New Repair</button><button class="btn" onclick="navigate(\'purchaseNew\')">'+icon('plus',15)+'New Purchase</button><button class="btn" onclick="navigate(\'saleNew\')">'+icon('plus',15)+'New Sale</button>');
   var inProgress = DB.jobs.filter(function(j){ return j.status==='progress'; }).length;
   var readyPickup = DB.jobs.filter(function(j){ return j.status==='fixed'; }).length;
   var todayPur = DB.purchases.filter(function(p){ return p.date===todayStr(); }).length;
+  var todaySale = DB.sales.filter(function(s){ return s.date===todayStr(); }).length;
   var owed = DB.jobs.filter(function(j){ return j.status!=='pickedup'; }).reduce(function(s,j){ return s+((Number(j.priceNeeded)||0)-(Number(j.priceDeposit)||0)); },0);
   var tp = totalProfit();
   var stockValue = DB.stock.reduce(function(s,x){ return x.status==='in' ? s+(Number(x.pricePaid)||0) : s; },0);
 
   var recentJobs = DB.jobs.slice().sort(function(a,b){ return b.createdAt-a.createdAt; }).slice(0,5);
   var recentPur = DB.purchases.slice().sort(function(a,b){ return b.createdAt-a.createdAt; }).slice(0,5);
+  var recentSales = DB.sales.slice().sort(function(a,b){ return b.createdAt-a.createdAt; }).slice(0,5);
 
   c.innerHTML = ''+
     '<div class="stats-grid">'+
@@ -1308,7 +1321,9 @@ function renderDashboard(c){
         '<div class="stub-list">'+(recentJobs.length? recentJobs.map(jobStubHTML).join('') : emptyNote('No repair jobs yet.'))+'</div></div>'+
       '<div><div class="section-title">Recent purchases<a onclick="navigate(\'purchasesList\')">View all</a></div>'+
         '<div class="stub-list">'+(recentPur.length? recentPur.map(purStubHTML).join('') : emptyNote('No purchases yet.'))+'</div></div>'+
-    '</div>';
+    '</div>'+
+    '<div class="section-title" style="margin-top:24px">Recent sales<a onclick="navigate(\'sellsList\')">View all</a></div>'+
+    '<div class="stub-list">'+(recentSales.length? recentSales.map(saleStubHTML).join('') : emptyNote('No sales yet.'))+'</div>';
 }
 function emptyNote(t){ return '<div class="card card-pad empty-note">'+t+'</div>'; }
 
@@ -1634,6 +1649,151 @@ function deletePurchase(id){
   saveDB(DB); toast('Purchase deleted'); navigate('purchasesList');
 }
 
+/* ============================= SELLS LIST ============================= */
+var SALE_FILTER = { q:'' };
+function saleStubHTML(s){
+  var total = s.items.reduce(function(t,i){ return t+(Number(i.price)||0); },0);
+  var itemNames = s.items.map(function(i){ return i.name; }).filter(Boolean).join(', ') || 'Untitled item';
+  return '<div class="stub" onclick="navigate(\'saleDetail\',\''+s.id+'\')">'+
+    '<div class="stub-main">'+
+      '<div class="stub-top"><span class="stub-num">SL-'+pad4(s.number)+'</span><span class="stub-title">'+escapeHTML(s.customerName||'Unnamed customer')+'</span></div>'+
+      '<div class="stub-meta">'+escapeHTML(itemNames)+' &middot; '+fmtDate(s.date)+'</div>'+
+    '</div>'+
+    '<div class="stub-price">'+fmtMoney(total)+'</div></div>';
+}
+function renderSellsList(c){
+  setTopbar('Sells','','<button class="btn btn-primary" onclick="navigate(\'saleNew\')">'+icon('plus',15)+'New Sale</button>');
+  c.innerHTML = ''+
+    '<div class="search-row"><input class="input" placeholder="Search customer, item, serial, receipt #..." value="'+escapeHTML(SALE_FILTER.q)+'" oninput="SALE_FILTER.q=this.value; renderSellsList(document.getElementById(\'content\'))"></div>'+
+    '<div class="stub-list" id="saleListZone"></div>';
+  var list = DB.sales.slice().sort(function(a,b){ return b.createdAt-a.createdAt; });
+  if(SALE_FILTER.q.trim()){
+    var q = SALE_FILTER.q.toLowerCase();
+    list = list.filter(function(s){ return (s.customerName||'').toLowerCase().indexOf(q)>=0 || ('sl-'+pad4(s.number)).indexOf(q)>=0 || s.items.some(function(it){ return (it.name||'').toLowerCase().indexOf(q)>=0 || (it.serial||'').toLowerCase().indexOf(q)>=0; }); });
+  }
+  document.getElementById('saleListZone').innerHTML = list.length? list.map(saleStubHTML).join('') : emptyNote('No matching sales.');
+}
+
+/* ============================= SALE FORM ============================= */
+var SALE_ITEMS = [];
+function saleItemRow(it, idx){
+  it = it||{};
+  return '<div class="item-row" data-idx="'+idx+'">'+
+    '<input class="input" placeholder="Item name" value="'+escapeHTML(it.name)+'" oninput="SALE_ITEMS['+idx+'].name=this.value">'+
+    '<input class="input" placeholder="Serial number" value="'+escapeHTML(it.serial)+'" oninput="SALE_ITEMS['+idx+'].serial=this.value">'+
+    '<input class="input" type="number" step="0.01" placeholder="Price" value="'+escapeHTML(it.price)+'" oninput="SALE_ITEMS['+idx+'].price=this.value; updateSaleTotal()">'+
+    '<button type="button" class="remove-row" onclick="removeSaleItem('+idx+')">'+icon('close',14)+'</button></div>';
+}
+function renderSaleItems(){ document.getElementById('saleItemsZone').innerHTML = SALE_ITEMS.map(function(it,i){ return saleItemRow(it,i); }).join(''); updateSaleTotal(); }
+function addSaleItem(){ SALE_ITEMS.push({name:'',serial:'',price:''}); renderSaleItems(); }
+function removeSaleItem(i){ if(SALE_ITEMS.length<=1) return toast('At least one item is required'); SALE_ITEMS.splice(i,1); renderSaleItems(); }
+function updateSaleTotal(){
+  var t = SALE_ITEMS.reduce(function(s,i){ return s+(Number(i.price)||0); },0);
+  var el = document.getElementById('saleTotalDisplay'); if(el) el.textContent = fmtMoney(t);
+}
+function renderSaleForm(c, id){
+  var editing = !!id;
+  var sale = editing ? DB.sales.find(function(s){ return s.id===id; }) : null;
+  SALE_ITEMS = editing ? JSON.parse(JSON.stringify(sale.items)) : [{name:'',serial:'',price:''}];
+  FORM_PHOTOS = editing ? sale.photos.slice() : [];
+
+  setTopbar(editing? 'Edit Sale SL-'+pad4(sale.number):'New Sale','','<button class="btn" onclick="navigate('+(editing?"'saleDetail','"+id+"'":"'sellsList'")+')">'+icon('back',15)+'Cancel</button>');
+
+  c.innerHTML = ''+
+  '<div class="card card-pad" style="max-width:820px">'+
+    '<div class="form-grid">'+
+      '<div class="field"><label>Customer full name *</label><input class="input" id="f_customerName" value="'+(editing?escapeHTML(sale.customerName):'')+'" placeholder="Full name"></div>'+
+      '<div class="field"><label>Phone number</label><input class="input" id="f_phone" value="'+(editing?escapeHTML(sale.phone):'')+'" placeholder="Phone"></div>'+
+      '<div class="field"><label>Date of sale *</label><input class="input" type="date" id="f_saleDate" value="'+(editing?sale.date:todayStr())+'"></div>'+
+    '</div>'+
+    '<fieldset><legend>Item(s) sold</legend><div id="saleItemsZone"></div>'+
+      '<button type="button" class="btn btn-sm" onclick="addSaleItem()">'+icon('plus',13)+'Add another item</button>'+
+      '<div style="margin-top:12px;font-size:13px;font-weight:700">Total price: <span id="saleTotalDisplay" class="mono">'+fmtMoney(0)+'</span></div></fieldset>'+
+    '<div class="field full"><label>Photos of the item</label><div id="photoZone">'+photoStripHTML(FORM_PHOTOS,true)+'</div></div>'+
+    '<div class="field full"><label>Customer signature</label>'+
+      '<div class="sig-wrap"><canvas class="sig-canvas" id="saleSigCanvas"></canvas>'+
+      '<button type="button" class="sig-expand" onclick="expandSig(__saleSigPad)" title="Expand signature pad">'+icon('expand',15)+'</button></div>'+
+      '<div class="sig-actions"><span class="sig-hint">Customer signs to confirm the sale &middot; tap corner to expand</span><button type="button" class="btn btn-sm" id="saleSigClear">Clear</button></div>'+
+    '</div>'+
+    '<div class="btn-row" style="margin-top:8px">'+
+      '<button class="btn btn-primary" onclick="saveSale('+(editing?"'"+id+"'":'null')+')">'+icon('check',15)+(editing?'Save changes':'Create sale')+'</button>'+
+      '<button class="btn" onclick="navigate('+(editing?"'saleDetail','"+id+"'":"'sellsList'")+')">Cancel</button>'+
+    '</div>'+
+  '</div>';
+
+  renderSaleItems();
+  window.__saleSigPad = makeSignaturePad(document.getElementById('saleSigCanvas'));
+  if(editing && sale.signature) window.__saleSigPad.load(sale.signature);
+  document.getElementById('saleSigClear').onclick = function(){ window.__saleSigPad.clear(); };
+}
+function saveSale(id){
+  var customerName = document.getElementById('f_customerName').value.trim();
+  var date = document.getElementById('f_saleDate').value;
+  if(!customerName) return toast('Customer name is required');
+  if(!date) return toast('Date is required');
+  if(!SALE_ITEMS.some(function(i){ return i.name && i.name.trim(); })) return toast('Add at least one item with a name');
+
+  var sigPad = window.__saleSigPad;
+  var signature = sigPad.isEmpty() ? null : sigPad.dataURL();
+
+  var payload = {
+    customerName: customerName,
+    phone: document.getElementById('f_phone').value.trim(),
+    date: date,
+    items: SALE_ITEMS.filter(function(i){ return i.name && i.name.trim(); }),
+    photos: FORM_PHOTOS.slice(),
+    signature: signature
+  };
+
+  if(id){
+    var sale = DB.sales.find(function(s){ return s.id===id; });
+    Object.assign(sale, payload);
+    saveDB(DB); toast('Sale updated'); navigate('saleDetail', id);
+  } else {
+    var sale2 = { id:uid(), number:DB.settings.nextSale, createdAt:Date.now() };
+    Object.assign(sale2, payload);
+    DB.sales.push(sale2); DB.settings.nextSale++; saveDB(DB);
+    toast('Sale created'); navigate('saleDetail', sale2.id);
+  }
+}
+
+/* ============================= SALE DETAIL ============================= */
+function renderSaleDetail(c, id){
+  var sale = DB.sales.find(function(s){ return s.id===id; });
+  if(!sale){ navigate('sellsList'); return; }
+  var total = sale.items.reduce(function(s,i){ return s+(Number(i.price)||0); },0);
+  setTopbar('Sale SL-'+pad4(sale.number),'',''+
+    '<button class="btn" onclick="printSale(\''+id+'\')">'+icon('printer',15)+'Print</button>'+
+    '<button class="btn" onclick="navigate(\'saleEdit\',\''+id+'\')">'+icon('edit',15)+'Edit</button>'+
+    '<button class="btn" onclick="deleteSale(\''+id+'\')">'+icon('trash',15)+'Delete</button>');
+
+  c.innerHTML = ''+
+  '<button class="btn btn-ghost btn-sm" style="margin-bottom:12px;padding-left:0" onclick="navigate(\'sellsList\')">'+icon('back',14)+'Back to sells</button>'+
+  '<div class="card card-pad">'+
+    '<div class="detail-header">'+
+      '<div><div class="detail-title">'+escapeHTML(sale.customerName)+'</div><div class="detail-sub">SL-'+pad4(sale.number)+' &middot; '+escapeHTML(sale.phone||'no phone on file')+'</div></div>'+
+      '<div class="stub-price" style="font-size:19px;padding-top:4px">'+fmtMoney(total)+'</div>'+
+    '</div>'+
+    '<div class="kv-grid">'+
+      '<div class="kv"><div class="kv-label">Date of sale</div><div class="kv-val">'+fmtDate(sale.date)+'</div></div>'+
+      '<div class="kv"><div class="kv-label">Phone number</div><div class="kv-val">'+escapeHTML(sale.phone||'—')+'</div></div>'+
+      '<div class="kv"><div class="kv-label">Total price</div><div class="kv-val">'+fmtMoney(total)+'</div></div>'+
+    '</div>'+
+    '<div class="section-title">Items sold</div>'+
+    '<table class="items-table"><thead><tr><th>Item</th><th>Serial number</th><th>Price</th></tr></thead>'+
+    '<tbody>'+sale.items.map(function(i){ return '<tr><td>'+escapeHTML(i.name)+'</td><td style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">'+escapeHTML(i.serial||'—')+'</td><td>'+fmtMoney(i.price)+'</td></tr>'; }).join('')+'</tbody></table>'+
+    '<div class="section-title">Photos</div>'+
+    '<div class="gallery">'+(sale.photos.length? sale.photos.map(function(p){ var u=safeURL(p); return u?'<img src="'+escapeHTML(u)+'" onclick="openImg(this.src)">':''; }).join('') : '<div class="empty-note">No photos attached.</div>')+'</div>'+
+    '<div class="section-title">Customer signature</div>'+
+    (sale.signature?'<div class="sig-preview" style="max-width:340px;background-image:url(\''+escapeHTML(safeURL(sale.signature))+'\')"></div>':'<div class="empty-note">Not signed.</div>')+
+  '</div>';
+}
+function deleteSale(id){
+  if(!confirm('Delete this sale receipt? This cannot be undone.')) return;
+  DB.sales = DB.sales.filter(function(s){ return s.id!==id; });
+  saveDB(DB); toast('Sale deleted'); navigate('sellsList');
+}
+
 /* ============================= STOCK ============================= */
 var STOCK_FILTER = { q:'', status:'all' };
 function renderStockList(c){
@@ -1764,13 +1924,18 @@ function buildPeople(){
   var map = new Map();
   DB.jobs.forEach(function(j){
     var key = (j.customerName||'Unknown customer').trim().toLowerCase();
-    if(!map.has(key)) map.set(key,{ name:j.customerName||'Unknown customer', phone:j.phone||'', jobs:[], purs:[], last:0 });
+    if(!map.has(key)) map.set(key,{ name:j.customerName||'Unknown customer', phone:j.phone||'', jobs:[], purs:[], sells:[], last:0 });
     var p = map.get(key); p.jobs.push(j); p.last = Math.max(p.last, j.createdAt||0);
   });
   DB.purchases.forEach(function(x){
     var key = (x.sellerName||'Unknown seller').trim().toLowerCase();
-    if(!map.has(key)) map.set(key,{ name:x.sellerName||'Unknown seller', phone:'', jobs:[], purs:[], last:0 });
+    if(!map.has(key)) map.set(key,{ name:x.sellerName||'Unknown seller', phone:'', jobs:[], purs:[], sells:[], last:0 });
     var p = map.get(key); p.purs.push(x); p.last = Math.max(p.last, x.createdAt||0);
+  });
+  DB.sales.forEach(function(x){
+    var key = (x.customerName||'Unknown customer').trim().toLowerCase();
+    if(!map.has(key)) map.set(key,{ name:x.customerName||'Unknown customer', phone:x.phone||'', jobs:[], purs:[], sells:[], last:0 });
+    var p = map.get(key); p.sells.push(x); p.last = Math.max(p.last, x.createdAt||0);
   });
   return Array.from(map.values()).sort(function(a,b){ return b.last-a.last; });
 }
@@ -1779,7 +1944,8 @@ function personMatches(p){
   if(q && p.name.toLowerCase().indexOf(q)<0 && ((p.phone||'').toLowerCase().indexOf(q)<0)) return false;
   var item = HIST.item.trim().toLowerCase();
   var recs = p.jobs.map(function(j){ return { date:j.dateReceived, text:(j.items||[]).map(function(i){ return ((i.name||'')+' '+(i.model||'')).trim(); }).join(' ').toLowerCase() }; })
-    .concat(p.purs.map(function(x){ return { date:x.date, text:(x.items||[]).map(function(i){ return ((i.name||'')+' '+(i.serial||'')).trim(); }).join(' ').toLowerCase() }; }));
+    .concat(p.purs.map(function(x){ return { date:x.date, text:(x.items||[]).map(function(i){ return ((i.name||'')+' '+(i.serial||'')).trim(); }).join(' ').toLowerCase() }; }))
+    .concat(p.sells.map(function(x){ return { date:x.date, text:(x.items||[]).map(function(i){ return ((i.name||'')+' '+(i.serial||'')).trim(); }).join(' ').toLowerCase() }; }));
   return recs.some(function(r){
     if(item && r.text.indexOf(item)<0) return false;
     if(HIST.from && r.date < HIST.from) return false;
@@ -1797,11 +1963,16 @@ function histRender(){
   document.getElementById('histCount').textContent = people.length + ' ' + (people.length===1?'person':'people');
   zone.innerHTML = people.length ? people.map(function(p){
     var initials = (p.name||'?').trim().split(/\s+/).map(function(w){ return w.charAt(0)||''; }).join('').toUpperCase().slice(0,2);
-    var tag = (p.jobs.length && p.purs.length) ? 'customer &middot; seller' : (p.jobs.length ? 'customer' : 'seller');
+    var tags = [];
+    if(p.jobs.length) tags.push('customer');
+    if(p.purs.length) tags.push('seller');
+    if(p.sells.length) tags.push('buyer');
+    var tag = tags.join(' &middot; ') || 'customer';
     var last = p.last ? new Date(p.last).toLocaleDateString(undefined,{month:'short',day:'numeric'}) : '—';
-    var meta = (p.phone||'no phone') + ' &middot; ' + p.jobs.length + ' repair' + (p.jobs.length===1?'':'s') + ' &middot; ' + p.purs.length + ' purchase' + (p.purs.length===1?'':'s') + ' &middot; last ' + last;
+    var meta = (p.phone||'no phone') + ' &middot; ' + p.jobs.length + ' repair' + (p.jobs.length===1?'':'s') + ' &middot; ' + p.purs.length + ' purchase' + (p.purs.length===1?'':'s') + ' &middot; ' + p.sells.length + ' sale' + (p.sells.length===1?'':'s') + ' &middot; last ' + last;
     var detail = p.jobs.slice().sort(function(a,b){ return b.createdAt-a.createdAt; }).map(jobStubHTML).join('')
-               + p.purs.slice().sort(function(a,b){ return b.createdAt-a.createdAt; }).map(purStubHTML).join('');
+               + p.purs.slice().sort(function(a,b){ return b.createdAt-a.createdAt; }).map(purStubHTML).join('')
+               + p.sells.slice().sort(function(a,b){ return b.createdAt-a.createdAt; }).map(saleStubHTML).join('');
     if(!detail) detail = '<div class="empty-note">No records.</div>';
     return '<div class="person" onclick="togglePerson(this)">'+
         '<div class="avatar">'+initials+'</div>'+
@@ -2094,6 +2265,22 @@ function printPurchase(id){
     '</table>'+
     '<div class="total">Total paid: '+fmtMoney(total)+'</div>'+
     (pur.signature?'<div class="sig"><div class="sig-label">Seller signature</div><img src="'+escapeHTML(safeURL(pur.signature))+'"></div>':'')+
+    '<div class="foot">'+escapeHTML(DB.settings.shopName)+' &middot; '+fmtDate(todayStr())+'</div>');
+}
+function printSale(id){
+  var sale = DB.sales.find(function(s){ return s.id===id; });
+  if(!sale) return;
+  var total = sale.items.reduce(function(s,i){ return s+(Number(i.price)||0); },0);
+  printDoc('Sale Receipt SL-'+pad4(sale.number),
+    printHeader()+
+    '<h2>Sale Receipt SL-'+pad4(sale.number)+'</h2>'+
+    '<div class="row"><b>Customer:</b> '+escapeHTML(sale.customerName)+' &nbsp;&nbsp; <b>Phone:</b> '+escapeHTML(sale.phone||'—')+'</div>'+
+    '<div class="row"><b>Date:</b> '+fmtDate(sale.date)+'</div>'+
+    '<table><tr><th>Item</th><th>Serial number</th><th class="num">Price</th></tr>'+
+      sale.items.map(function(i){ return '<tr><td>'+escapeHTML(i.name)+'</td><td>'+escapeHTML(i.serial||'—')+'</td><td class="num">'+fmtMoney(i.price)+'</td></tr>'; }).join('')+
+    '</table>'+
+    '<div class="total">Total price: '+fmtMoney(total)+'</div>'+
+    (sale.signature?'<div class="sig"><div class="sig-label">Customer signature</div><img src="'+escapeHTML(safeURL(sale.signature))+'"></div>':'')+
     '<div class="foot">'+escapeHTML(DB.settings.shopName)+' &middot; '+fmtDate(todayStr())+'</div>');
 }
 
