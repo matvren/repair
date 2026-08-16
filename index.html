@@ -1040,7 +1040,58 @@ var NAV_ITEMS = [
   {v:'history', label:'Customers', icon:'users'},
   {v:'settings', label:'Settings', icon:'gear'},
 ];
-function navigate(view, id){ STATE.view=view; STATE.id=id||null; render(); window.scrollTo(0,0); }
+var ROUTES = {
+  dashboard:'#/dashboard',
+  jobsList:'#/repairs',
+  jobNew:'#/repairs/new',
+  jobEdit:'#/repairs/edit/',
+  jobDetail:'#/repairs/',
+  purchasesList:'#/purchases',
+  purchaseNew:'#/purchases/new',
+  purchaseEdit:'#/purchases/edit/',
+  purchaseDetail:'#/purchases/',
+  sellsList:'#/sells',
+  saleNew:'#/sells/new',
+  saleEdit:'#/sells/edit/',
+  saleDetail:'#/sells/',
+  stock:'#/stock',
+  calendar:'#/calendar',
+  history:'#/history',
+  settings:'#/settings'
+};
+function parseHash(){
+  var h = (location.hash||'').replace(/^#\/?/, '');
+  if(!h) return { view:'dashboard', id:null };
+  var p = h.split('/').filter(Boolean);
+  function list(seg, base, n, d){
+    if(p[0]!==seg) return null;
+    if(p[1]==='new') return { view:base+'New' };
+    if(p[1]==='edit' && p[2]) return { view:base+'Edit', id:p[2] };
+    if(p[1]) return { view:d, id:p[1] };
+    return { view:n };
+  }
+  return list('repairs','job','jobsList','jobDetail') ||
+         list('purchases','purchase','purchasesList','purchaseDetail') ||
+         list('sells','sale','sellsList','saleDetail') ||
+         ({ stock:{view:'stock'}, calendar:{view:'calendar'}, history:{view:'history'}, settings:{view:'settings'} })[p[0]] ||
+         { view:'dashboard', id:null };
+}
+function applyRoute(){
+  var r = parseHash();
+  STATE.view = r.view; STATE.id = r.id||null;
+  render(); window.scrollTo(0,0);
+}
+function navigate(view, id){
+  var r = ROUTES[view];
+  if(r){
+    var t = r + (id||'');
+    if(location.hash === t) applyRoute();
+    else location.hash = t;
+  } else {
+    STATE.view = view; STATE.id = id||null; render(); window.scrollTo(0,0);
+  }
+}
+window.addEventListener('hashchange', applyRoute);
 function activeGroup(v){ if(v.indexOf('job')===0) return 'jobsList'; if(v.indexOf('purchase')===0) return 'purchasesList'; if(v.indexOf('sale')===0) return 'sellsList'; return v; }
 
 function renderNav(){
@@ -1472,7 +1523,7 @@ function renderJobForm(c, id){
     '<div class="form-grid">'+
       '<div class="field"><label>Price paid now (deposit)</label><input class="input" type="number" step="0.01" id="f_priceDeposit" value="'+(editing?job.priceDeposit:'')+'" placeholder="0.00"></div>'+
       '<div class="field"><label>Total price needed</label><input class="input" type="number" step="0.01" id="f_priceNeeded" value="'+(editing?job.priceNeeded:'')+'" placeholder="0.00"></div>'+
-      '<div class="field"><label>Final payment (on pickup)</label><input class="input" type="number" step="0.01" id="f_finalPayment" value="'+(editing?(job.finalPayment||''):'')+'" placeholder="0.00"></div>'+
+      (editing?'<div class="field"><label>Final payment (on pickup)</label><input class="input" type="number" step="0.01" id="f_finalPayment" value="'+(job.finalPayment||'')+'" placeholder="0.00"></div>':'')+
       (editing?'<div class="field"><label>Money spent on parts</label><input class="input" type="number" step="0.01" id="f_partsCost" value="'+(job.partsCost||'')+'" placeholder="0.00"><div style="font-size:11px;color:var(--ink-soft);margin-top:4px">Optional &mdash; deducted from repair profit</div></div>':'')+
     '</div>'+
     '<div class="field full"><label>Notes</label><textarea class="textarea" id="f_notes" placeholder="Internal notes...">'+(editing?escapeHTML(job.notes||''):'')+'</textarea></div>'+
@@ -1511,7 +1562,7 @@ function saveJob(id){
     items: JOB_ITEMS.filter(function(i){ return i.name && i.name.trim(); }),
     priceDeposit: document.getElementById('f_priceDeposit').value || 0,
     priceNeeded: document.getElementById('f_priceNeeded').value || 0,
-    finalPayment: document.getElementById('f_finalPayment').value || 0,
+    finalPayment: (document.getElementById('f_finalPayment')||{}).value || 0,
     partsCost: (document.getElementById('f_partsCost')||{}).value || 0,
     notes: document.getElementById('f_notes').value.trim(),
     photos: FORM_PHOTOS.slice(),
@@ -2512,6 +2563,7 @@ function setupPWA(){
 }
 
 /* ============================= INIT ============================= */
+var r0 = parseHash(); STATE.view = r0.view; STATE.id = r0.id||null;
 setThemeColor(); renderThemeBtn(); setupPWA(); render();
 sbHandleConfirmRedirect();
 sbRestoreSession();
