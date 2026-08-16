@@ -1362,7 +1362,7 @@ function renderDashboard(c){
 
   c.innerHTML = ''+
     '<div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">'+
-      '<div class="stat-card clickable" onclick="showProfitDialog()"><div class="stat-num '+(tp>=0?'num-pos':'num-neg')+'">'+fmtMoney(tp)+'</div><div class="stat-label">Total income (all)</div></div>'+
+      '<div class="stat-card clickable" onclick="showProfitDialog()"><div class="stat-num '+(tp>=0?'num-pos':'num-neg')+'">'+fmtMoney(tp)+'</div><div class="stat-label">Gross profit (all)</div></div>'+
       stat(fmtMoney(sellProfit),'Profit from sells','num-pos')+
       stat(fmtMoney(purSpent),'Spent on purchases','num-neg')+
       stat(fmtMoney(stockValue),'Stock value')+
