@@ -577,14 +577,13 @@ function sbLogout(){ sbClearSession(); toast('Signed out'); render(); }
 function sbDeleteAccount(){
   if(!confirm('This will permanently delete your cloud account and the synced records stored in the cloud. Continue?')) return;
   if(!confirm('Are you absolutely sure? This cannot be undone.')) return;
-  fetch(SB_URL + '/auth/v1/user', { method: 'DELETE', headers: sbHeaders() })
-    .then(function(r){
-      if(r.status >= 200 && r.status < 300) return;
-      return r.json().catch(function(){ return {}; }).then(function(d){
-        throw new Error(d.msg || d.error_description || d.message || ('Delete failed (' + r.status + ')'));
-      });
-    })
-    .then(function(){
+  fetch(SB_URL + '/functions/v1/delete-account', { method: 'POST', headers: sbHeaders() })
+    .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(d){ return { status: r.status, ok: r.ok, body: d }; }); })
+    .then(function(res){
+      if(!res.ok){
+        if(res.status === 404) throw new Error('Delete failed: deploy the "delete-account" Edge Function in Supabase');
+        throw new Error(res.body.error || ('Delete failed (' + res.status + ')'));
+      }
       sbClearSession();
       toast('Account deleted');
       render();
