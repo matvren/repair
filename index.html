@@ -158,6 +158,7 @@ a{color:inherit}
 .act-badge.repair{background:rgba(31,111,235,.13);color:var(--accent)}
 .act-badge.bought{background:rgba(180,83,9,.13);color:#b45309}
 .act-badge.job{background:rgba(128,128,128,.15);color:var(--ink-soft)}
+.act-badge.sale{background:rgba(22,115,71,.12);color:var(--good)}
 .act-amt{flex:none;font-weight:800;font-size:12px;color:var(--good)}
 .act-amt.neg{color:#b45309}
 .stat-label{font-size:10.5px;color:var(--ink-soft);margin-top:7px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
@@ -883,6 +884,28 @@ function profitEntries(){
       });
     }
   });
+  DB.sales.forEach(function(s){
+    if(!s.date || !(s.items||[]).length) return;
+    var linked = DB.stock.filter(function(x){ return x.saleId===s.id; });
+    var amount = 0;
+    (s.items||[]).forEach(function(it){
+      var name = (it.name||'').trim().toLowerCase();
+      var serial = (it.serial||'').trim().toLowerCase();
+      var hit = null;
+      linked.forEach(function(x){
+        if(hit) return;
+        if(serial && (x.serial||'') && x.serial.trim().toLowerCase()===serial){ hit=x; }
+        else if(!serial && (x.name||'').trim().toLowerCase()===name){ hit=x; }
+      });
+      if(!hit) amount += (Number(it.price)||0) - (Number(it.cost)||0);
+    });
+    if(amount !== 0) out.push({
+      date: s.date, type: 'sale',
+      label: (s.customerName || 'Customer') + ' &middot; ' + ((s.items[0] && s.items[0].name) || 'sale'),
+      amount: amount,
+      ref: s.id
+    });
+  });
   out.sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
   return out;
 }
@@ -905,8 +928,8 @@ function showProfitDialog(){
   var entries = profitEntries();
   var total = entries.reduce(function(s, e){ return s + e.amount; }, 0);
   var rows = entries.slice().reverse().map(function(e){
-    var t = e.type === 'repair' ? 'Repair revenue' : 'Sold item';
-    var cls = e.type === 'repair' ? 'repair' : 'sold';
+    var t = ({ repair:'Repair revenue', 'sold-item':'Sold item', sale:'Sale' })[e.type] || 'Sold item';
+    var cls = ({ repair:'repair', 'sold-item':'sold', sale:'sale' })[e.type] || 'sold';
     return '<div class="act-row">'+
       '<span class="act-badge '+cls+'">'+t+'</span>'+
       '<span class="act-label">'+fmtDate(e.date)+' &middot; '+e.label+'</span>'+
@@ -917,11 +940,12 @@ function showProfitDialog(){
       '<div class="stat-card"><div class="stat-num '+(total>=0?'num-pos':'num-neg')+'">'+fmtMoney(total)+'</div><div class="stat-label">Total income</div></div>'+
       '<div class="stat-card"><div class="stat-num">'+entries.filter(function(e){ return e.type==='repair'; }).length+'</div><div class="stat-label">Repairs</div></div>'+
       '<div class="stat-card"><div class="stat-num">'+entries.filter(function(e){ return e.type==='sold-item'; }).length+'</div><div class="stat-label">Items sold</div></div>'+
+      '<div class="stat-card"><div class="stat-num">'+entries.filter(function(e){ return e.type==='sale'; }).length+'</div><div class="stat-label">Sales</div></div>'+
     '</div>'+
     '<div class="card card-pad" style="max-height:340px;overflow:auto">'+
-      (rows || '<div class="empty-note">No income yet. Income comes from sold stock items and repairs that have been picked up.</div>')+
+      (rows || '<div class="empty-note">No income yet. Income comes from sold stock items, sales and repairs that have been picked up.</div>')+
     '</div>'+
-    '<p style="font-size:11px;color:var(--ink-soft);margin-top:8px">Sold item = sale price &minus; cost paid. Repair = deposit + final payment (revenue; parts and labor costs are not deducted), counted on the pickup date.</p>';
+    '<p style="font-size:11px;color:var(--ink-soft);margin-top:8px">Sold item = sale price &minus; cost paid. Sale = sale price &minus; cost paid for items not in stock (stock items are counted above). Repair = deposit + final payment (revenue; parts and labor costs are not deducted), counted on the pickup date.</p>';
   document.getElementById('profitDialog').showModal();
 }
 
@@ -2258,8 +2282,9 @@ function renderCalendar(c){
       rows = '<div class="empty-note">Nothing happened on '+fmtDate(CAL.day)+'.</div>';
     } else {
       dayProfit.forEach(function(e){
+        var bm = ({ repair:['repair','Repair'], 'sold-item':['sold','Sold item'], sale:['sale','Sale'] })[e.type] || ['sold','Sold item'];
         rows += '<div class="act-row">'+
-          '<span class="act-badge '+(e.type==='repair'?'repair':'sold')+'">'+(e.type==='repair'?'Repair':'Sold item')+'</span>'+
+          '<span class="act-badge '+bm[0]+'">'+bm[1]+'</span>'+
           '<span class="act-label">'+e.label+'</span>'+
           '<span class="act-amt">+'+fmtMoney(e.amount)+'</span></div>';
       });
