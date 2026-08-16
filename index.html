@@ -204,6 +204,10 @@ fieldset{border:1px solid var(--line);border-radius:var(--radius);padding:16px;m
 legend{font-size:11px;font-weight:700;padding:0 6px;color:var(--ink);text-transform:uppercase;letter-spacing:.4px}
 
 .item-row{display:grid;grid-template-columns:1.3fr 1fr .8fr 34px;gap:8px;margin-bottom:8px;align-items:center}
+.item-row.sale-row{grid-template-columns:1.3fr 1fr .8fr .8fr 34px}
+.sale-hint{grid-column:1/-1;font-size:11px;font-weight:600;color:var(--ink-faint);margin:-2px 2px 0}
+.sale-hint.ok{color:var(--good)}
+.sale-hint.warn{color:var(--bad)}
 .item-row input{padding:9px 10px;font-size:13px}
 .remove-row{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center}
 
@@ -1653,13 +1657,17 @@ function deletePurchase(id){
 var SALE_FILTER = { q:'' };
 function saleStubHTML(s){
   var total = s.items.reduce(function(t,i){ return t+(Number(i.price)||0); },0);
+  var cost = s.items.reduce(function(t,i){ return t+(Number(i.cost)||0); },0);
+  var profit = total-cost;
   var itemNames = s.items.map(function(i){ return i.name; }).filter(Boolean).join(', ') || 'Untitled item';
   return '<div class="stub" onclick="navigate(\'saleDetail\',\''+s.id+'\')">'+
     '<div class="stub-main">'+
       '<div class="stub-top"><span class="stub-num">SL-'+pad4(s.number)+'</span><span class="stub-title">'+escapeHTML(s.customerName||'Unnamed customer')+'</span></div>'+
       '<div class="stub-meta">'+escapeHTML(itemNames)+' &middot; '+fmtDate(s.date)+'</div>'+
     '</div>'+
-    '<div class="stub-price">'+fmtMoney(total)+'</div></div>';
+    '<div class="stub-price" style="text-align:right">'+fmtMoney(total)+
+      (cost>0? '<div style="font-size:11.5px;margin-top:3px" class="'+(profit>=0?'num-pos':'num-neg')+'">'+fmtMoney(profit)+' profit</div>' : '')+
+    '</div></div>';
 }
 function renderSellsList(c){
   setTopbar('Sells','','<button class="btn btn-primary" onclick="navigate(\'saleNew\')">'+icon('plus',15)+'New Sale</button>');
@@ -1676,25 +1684,71 @@ function renderSellsList(c){
 
 /* ============================= SALE FORM ============================= */
 var SALE_ITEMS = [];
+function stockMatchFor(name, serial){
+  var n = (name||'').trim().toLowerCase();
+  if(!n) return null;
+  var s2 = (serial||'').trim().toLowerCase();
+  var m = null;
+  DB.stock.forEach(function(s){
+    if(s.status!=='in') return;
+    if((s.name||'').trim().toLowerCase()!==n) return;
+    if(s2 && (s.serial||'') && (s.serial||'').trim().toLowerCase()!==s2) return;
+    m = s;
+  });
+  return m;
+}
 function saleItemRow(it, idx){
   it = it||{};
-  return '<div class="item-row" data-idx="'+idx+'">'+
-    '<input class="input" placeholder="Item name" value="'+escapeHTML(it.name)+'" oninput="SALE_ITEMS['+idx+'].name=this.value">'+
-    '<input class="input" placeholder="Serial number" value="'+escapeHTML(it.serial)+'" oninput="SALE_ITEMS['+idx+'].serial=this.value">'+
+  var hasCost = it.cost!==undefined && it.cost!==null && String(it.cost).trim()!=='';
+  var match = stockMatchFor(it.name, it.serial);
+  var hint = '';
+  if(match) hint = '<div class="sale-hint ok">Found in stock &middot; bought for '+fmtMoney(match.pricePaid)+(match.serial?' &middot; SN '+escapeHTML(match.serial):'')+'</div>';
+  else if((it.name||'').trim() && !hasCost) hint = '<div class="sale-hint warn">Not in stock &middot; enter what we paid for it (bought for)</div>';
+  return '<div class="item-row sale-row" data-idx="'+idx+'">'+
+    '<input class="input s-name" list="stockDatalist" placeholder="Item name (pick or type)" value="'+escapeHTML(it.name)+'" oninput="SALE_ITEMS['+idx+'].name=this.value; saleItemStockCheck('+idx+', this)">'+
+    '<input class="input s-serial" placeholder="Serial number" value="'+escapeHTML(it.serial)+'" oninput="SALE_ITEMS['+idx+'].serial=this.value; saleItemStockCheck('+idx+', this)">'+
     '<input class="input" type="number" step="0.01" placeholder="Price" value="'+escapeHTML(it.price)+'" oninput="SALE_ITEMS['+idx+'].price=this.value; updateSaleTotal()">'+
-    '<button type="button" class="remove-row" onclick="removeSaleItem('+idx+')">'+icon('close',14)+'</button></div>';
+    '<input class="input s-cost" type="number" step="0.01" placeholder="Bought for" value="'+escapeHTML(hasCost?it.cost:'')+'" oninput="SALE_ITEMS['+idx+'].cost=this.value; updateSaleTotal()">'+
+    '<button type="button" class="remove-row" onclick="removeSaleItem('+idx+')">'+icon('close',14)+'</button>'+
+    hint+
+    '</div>';
+}
+function saleItemStockCheck(idx, el){
+  var it = SALE_ITEMS[idx];
+  if(!el || !el.closest) return;
+  var row = el.closest('.item-row');
+  if(!row) return;
+  var serialIn = row.querySelector('.s-serial');
+  var costIn = row.querySelector('.s-cost');
+  var hintEl = row.querySelector('.sale-hint');
+  var match = stockMatchFor(it.name, it.serial);
+  if(match){
+    if(!(it.serial||'').trim() && serialIn){ it.serial = match.serial||''; serialIn.value = it.serial; }
+    if(costIn && (!costIn.value || costIn.dataset.auto==='1')){
+      costIn.value = match.pricePaid!=null?match.pricePaid:''; costIn.dataset.auto='1'; it.cost = costIn.value;
+    }
+    if(hintEl){ hintEl.style.display=''; hintEl.className='sale-hint ok'; hintEl.textContent = 'Found in stock &middot; bought for '+fmtMoney(match.pricePaid)+(match.serial?' &middot; SN '+match.serial:''); }
+  } else if((it.name||'').trim() && !(it.cost!==undefined && it.cost!==null && String(it.cost).trim()!=='')){
+    if(hintEl){ hintEl.style.display=''; hintEl.className='sale-hint warn'; hintEl.textContent = 'Not in stock &middot; enter what we paid for it (bought for)'; }
+  } else {
+    if(hintEl){ hintEl.style.display='none'; }
+  }
+  updateSaleTotal();
 }
 function renderSaleItems(){ document.getElementById('saleItemsZone').innerHTML = SALE_ITEMS.map(function(it,i){ return saleItemRow(it,i); }).join(''); updateSaleTotal(); }
-function addSaleItem(){ SALE_ITEMS.push({name:'',serial:'',price:''}); renderSaleItems(); }
+function addSaleItem(){ SALE_ITEMS.push({name:'',serial:'',price:'',cost:''}); renderSaleItems(); }
 function removeSaleItem(i){ if(SALE_ITEMS.length<=1) return toast('At least one item is required'); SALE_ITEMS.splice(i,1); renderSaleItems(); }
 function updateSaleTotal(){
-  var t = SALE_ITEMS.reduce(function(s,i){ return s+(Number(i.price)||0); },0);
-  var el = document.getElementById('saleTotalDisplay'); if(el) el.textContent = fmtMoney(t);
+  var price = 0, cost = 0;
+  SALE_ITEMS.forEach(function(i){ price += Number(i.price)||0; cost += Number(i.cost)||0; });
+  var el = document.getElementById('saleTotalDisplay'); if(el) el.textContent = fmtMoney(price);
+  var el2 = document.getElementById('saleProfitDisplay');
+  if(el2){ el2.textContent = fmtMoney(price-cost); el2.className = 'mono '+(price-cost>=0?'num-pos':'num-neg'); }
 }
 function renderSaleForm(c, id){
   var editing = !!id;
   var sale = editing ? DB.sales.find(function(s){ return s.id===id; }) : null;
-  SALE_ITEMS = editing ? JSON.parse(JSON.stringify(sale.items)) : [{name:'',serial:'',price:''}];
+  SALE_ITEMS = editing ? JSON.parse(JSON.stringify(sale.items)) : [{name:'',serial:'',price:'',cost:''}];
   FORM_PHOTOS = editing ? sale.photos.slice() : [];
 
   setTopbar(editing? 'Edit Sale SL-'+pad4(sale.number):'New Sale','','<button class="btn" onclick="navigate('+(editing?"'saleDetail','"+id+"'":"'sellsList'")+')">'+icon('back',15)+'Cancel</button>');
@@ -1706,9 +1760,10 @@ function renderSaleForm(c, id){
       '<div class="field"><label>Phone number</label><input class="input" id="f_phone" value="'+(editing?escapeHTML(sale.phone):'')+'" placeholder="Phone"></div>'+
       '<div class="field"><label>Date of sale *</label><input class="input" type="date" id="f_saleDate" value="'+(editing?sale.date:todayStr())+'"></div>'+
     '</div>'+
-    '<fieldset><legend>Item(s) sold</legend><div id="saleItemsZone"></div>'+
+    '<fieldset><legend>Item(s) sold</legend><datalist id="stockDatalist"></datalist><div id="saleItemsZone"></div>'+
       '<button type="button" class="btn btn-sm" onclick="addSaleItem()">'+icon('plus',13)+'Add another item</button>'+
-      '<div style="margin-top:12px;font-size:13px;font-weight:700">Total price: <span id="saleTotalDisplay" class="mono">'+fmtMoney(0)+'</span></div></fieldset>'+
+      '<div style="margin-top:12px;font-size:13px;font-weight:700">Total price: <span id="saleTotalDisplay" class="mono">'+fmtMoney(0)+'</span> &middot; Profit: <span id="saleProfitDisplay" class="mono">'+fmtMoney(0)+'</span></div>'+
+      '<p style="font-size:11px;color:var(--ink-faint);margin-top:6px">Pick an item from the list or type a new one. If it is not in stock, add what we bought it for so profit is calculated.</p></fieldset>'+
     '<div class="field full"><label>Photos of the item</label><div id="photoZone">'+photoStripHTML(FORM_PHOTOS,true)+'</div></div>'+
     '<div class="field full"><label>Customer signature</label>'+
       '<div class="sig-wrap"><canvas class="sig-canvas" id="saleSigCanvas"></canvas>'+
@@ -1722,6 +1777,16 @@ function renderSaleForm(c, id){
   '</div>';
 
   renderSaleItems();
+  var dl = document.getElementById('stockDatalist');
+  if(dl){
+    var seen = {};
+    dl.innerHTML = DB.stock.filter(function(s){ return s.status==='in'; }).map(function(s){
+      var n = s.name||'';
+      if(seen[n.toLowerCase()]) return '';
+      seen[n.toLowerCase()] = 1;
+      return '<option value="'+escapeHTML(n)+'"></option>';
+    }).join('');
+  }
   window.__saleSigPad = makeSignaturePad(document.getElementById('saleSigCanvas'));
   if(editing && sale.signature) window.__saleSigPad.load(sale.signature);
   document.getElementById('saleSigClear').onclick = function(){ window.__saleSigPad.clear(); };
@@ -1732,6 +1797,14 @@ function saveSale(id){
   if(!customerName) return toast('Customer name is required');
   if(!date) return toast('Date is required');
   if(!SALE_ITEMS.some(function(i){ return i.name && i.name.trim(); })) return toast('Add at least one item with a name');
+
+  var needCost = null;
+  SALE_ITEMS.forEach(function(i){
+    if(!i.name || !i.name.trim()) return;
+    if(stockMatchFor(i.name, i.serial)) return;
+    if(i.cost===undefined || i.cost===null || String(i.cost).trim()==='' || isNaN(Number(i.cost))) needCost = i.name;
+  });
+  if(needCost) return toast('Enter what we paid for "'+needCost+'" (bought for) to calculate profit');
 
   var sigPad = window.__saleSigPad;
   var signature = sigPad.isEmpty() ? null : sigPad.dataURL();
@@ -1792,6 +1865,8 @@ function renderSaleDetail(c, id){
   var sale = DB.sales.find(function(s){ return s.id===id; });
   if(!sale){ navigate('sellsList'); return; }
   var total = sale.items.reduce(function(s,i){ return s+(Number(i.price)||0); },0);
+  var totalCost = sale.items.reduce(function(s,i){ return s+(Number(i.cost)||0); },0);
+  var profit = total-totalCost;
   var linked = DB.stock.filter(function(x){ return x.saleId===id; }).length;
   setTopbar('Sale SL-'+pad4(sale.number),'',''+
     '<button class="btn" onclick="printSale(\''+id+'\')">'+icon('printer',15)+'Print</button>'+
@@ -1809,6 +1884,8 @@ function renderSaleDetail(c, id){
       '<div class="kv"><div class="kv-label">Date of sale</div><div class="kv-val">'+fmtDate(sale.date)+'</div></div>'+
       '<div class="kv"><div class="kv-label">Phone number</div><div class="kv-val">'+escapeHTML(sale.phone||'—')+'</div></div>'+
       '<div class="kv"><div class="kv-label">Total price</div><div class="kv-val">'+fmtMoney(total)+'</div></div>'+
+      '<div class="kv"><div class="kv-label">Total cost (bought for)</div><div class="kv-val">'+fmtMoney(totalCost)+'</div></div>'+
+      '<div class="kv"><div class="kv-label">Profit</div><div class="kv-val '+(profit>=0?'num-pos':'num-neg')+'" style="font-weight:800">'+fmtMoney(profit)+'</div></div>'+
     '</div>'+
     '<div class="section-title">Items sold</div>'+
     '<table class="items-table"><thead><tr><th>Item</th><th>Serial number</th><th>Price</th></tr></thead>'+
