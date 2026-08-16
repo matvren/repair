@@ -1748,13 +1748,43 @@ function saveSale(id){
   if(id){
     var sale = DB.sales.find(function(s){ return s.id===id; });
     Object.assign(sale, payload);
+    restoreStockFromSale(id);
+    syncStockFromSale(sale);
     saveDB(DB); toast('Sale updated'); navigate('saleDetail', id);
   } else {
     var sale2 = { id:uid(), number:DB.settings.nextSale, createdAt:Date.now() };
     Object.assign(sale2, payload);
-    DB.sales.push(sale2); DB.settings.nextSale++; saveDB(DB);
+    DB.sales.push(sale2); DB.settings.nextSale++;
+    syncStockFromSale(sale2);
+    saveDB(DB);
     toast('Sale created'); navigate('saleDetail', sale2.id);
   }
+}
+function syncStockFromSale(sale){
+  var used = {};
+  (sale.items||[]).forEach(function(it){
+    var name = (it.name||'').trim().toLowerCase();
+    var serial = (it.serial||'').trim().toLowerCase();
+    if(!name) return;
+    var hit = null;
+    DB.stock.forEach(function(s){
+      if(used[s.id] || s.status!=='in') return;
+      if(serial && s.serial && s.serial.trim().toLowerCase()===serial){ hit=s; }
+      else if(!serial && (s.name||'').trim().toLowerCase()===name){ hit=s; }
+    });
+    if(hit){
+      used[hit.id]=true;
+      hit.status='sold'; hit.priceSold=Number(it.price)||0; hit.dateSold=sale.date;
+      hit.saleId=sale.id; hit.saleNumber=sale.number;
+    }
+  });
+}
+function restoreStockFromSale(id){
+  DB.stock.forEach(function(s){
+    if(s.saleId===id){
+      s.status='in'; s.priceSold=null; s.dateSold=null; s.saleId=null; s.saleNumber=null;
+    }
+  });
 }
 
 /* ============================= SALE DETAIL ============================= */
@@ -1762,6 +1792,7 @@ function renderSaleDetail(c, id){
   var sale = DB.sales.find(function(s){ return s.id===id; });
   if(!sale){ navigate('sellsList'); return; }
   var total = sale.items.reduce(function(s,i){ return s+(Number(i.price)||0); },0);
+  var linked = DB.stock.filter(function(x){ return x.saleId===id; }).length;
   setTopbar('Sale SL-'+pad4(sale.number),'',''+
     '<button class="btn" onclick="printSale(\''+id+'\')">'+icon('printer',15)+'Print</button>'+
     '<button class="btn" onclick="navigate(\'saleEdit\',\''+id+'\')">'+icon('edit',15)+'Edit</button>'+
@@ -1782,6 +1813,7 @@ function renderSaleDetail(c, id){
     '<div class="section-title">Items sold</div>'+
     '<table class="items-table"><thead><tr><th>Item</th><th>Serial number</th><th>Price</th></tr></thead>'+
     '<tbody>'+sale.items.map(function(i){ return '<tr><td>'+escapeHTML(i.name)+'</td><td style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">'+escapeHTML(i.serial||'—')+'</td><td>'+fmtMoney(i.price)+'</td></tr>'; }).join('')+'</tbody></table>'+
+    (linked? '<p style="font-size:12px;color:var(--ink-soft);margin:-6px 0 4px">'+linked+' stock item'+(linked===1?'':'s')+' auto-marked sold &middot; see Stock.</p>' : '')+
     '<div class="section-title">Photos</div>'+
     '<div class="gallery">'+(sale.photos.length? sale.photos.map(function(p){ var u=safeURL(p); return u?'<img src="'+escapeHTML(u)+'" onclick="openImg(this.src)">':''; }).join('') : '<div class="empty-note">No photos attached.</div>')+'</div>'+
     '<div class="section-title">Customer signature</div>'+
@@ -1789,7 +1821,8 @@ function renderSaleDetail(c, id){
   '</div>';
 }
 function deleteSale(id){
-  if(!confirm('Delete this sale receipt? This cannot be undone.')) return;
+  if(!confirm('Delete this sale receipt? Linked stock items will go back to in stock. This cannot be undone.')) return;
+  restoreStockFromSale(id);
   DB.sales = DB.sales.filter(function(s){ return s.id!==id; });
   saveDB(DB); toast('Sale deleted'); navigate('sellsList');
 }
@@ -1821,6 +1854,7 @@ function stockStubHTML(s){
   if(s.purchaseNumber) meta.push('PR-'+pad4(s.purchaseNumber));
   meta.push('bought '+fmtDate(s.dateBought));
   if(s.status==='sold' && s.dateSold) meta.push('sold '+fmtDate(s.dateSold));
+  if(s.status==='sold' && s.saleNumber) meta.push('via SL-'+pad4(s.saleNumber));
   return '<div class="stub" onclick="openStockItem(\''+s.id+'\')">'+
     '<div class="stub-main">'+
       '<div class="stub-top">'+(s.serial?'<span class="stub-num">'+escapeHTML(s.serial)+'</span>':'')+'<span class="stub-title">'+escapeHTML(s.name||'Unnamed item')+'</span>'+(s.status==='sold'?'<span class="badge badge-fixed">Sold</span>':'<span class="badge">In stock</span>')+'</div>'+
@@ -1845,7 +1879,7 @@ function openStockItem(id){
       'Bought: '+fmtDate(s.dateBought)+' &middot; Paid: '+fmtMoney(paid)+
     '</div>'+
     (s.status==='sold'
-      ? '<div class="kv"><div class="kv-label">Sold</div><div class="kv-val">'+fmtMoney(s.priceSold)+' on '+fmtDate(s.dateSold)+'</div></div>'+
+      ? '<div class="kv"><div class="kv-label">Sold</div><div class="kv-val">'+fmtMoney(s.priceSold)+' on '+fmtDate(s.dateSold)+(s.saleNumber?' &middot; via sale SL-'+pad4(s.saleNumber):'')+'</div></div>'+
         '<div class="kv" style="border-top:1px solid var(--line)"><div class="kv-label">Profit</div><div class="kv-val '+(profit>=0?'num-pos':'')+'" style="font-weight:800">'+fmtMoney(profit)+'</div></div>'+
         '<div class="btn-row" style="margin-top:12px"><button class="btn" onclick="undoStockSale()">Back to stock</button></div>'
       : '<div class="field" style="margin-top:4px"><label>Sell price</label><input class="input" type="number" step="0.01" id="f_sellPrice" placeholder="0.00" style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"></div>'+
@@ -1867,7 +1901,7 @@ function markStockSold(){
 }
 function undoStockSale(){
   var s = DB.stock.find(function(x){ return x.id===__stockSel; });
-  s.status='in'; s.priceSold=null; s.dateSold=null;
+  s.status='in'; s.priceSold=null; s.dateSold=null; s.saleId=null; s.saleNumber=null;
   saveDB(DB); document.getElementById('stockDialog').close();
   toast('Back in stock'); render();
 }
