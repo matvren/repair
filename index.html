@@ -879,10 +879,11 @@ function profitEntries(){
       var dep = Number(j.priceDeposit) || 0;
       var fin = Number(j.finalPayment);
       if(!(fin > 0)) fin = Math.max(0, (Number(j.priceNeeded) || 0) - dep);
+      var parts = Number(j.partsCost) || 0;
       out.push({
         date: j.pickedUpDate, type: 'repair',
         label: (j.customerName || 'Customer') + ' &middot; ' + ((j.items && j.items[0] && j.items[0].name) || 'repair'),
-        amount: dep + fin,
+        amount: dep + fin - parts,
         ref: j.id
       });
     }
@@ -948,7 +949,7 @@ function showProfitDialog(){
     '<div class="card card-pad" style="max-height:340px;overflow:auto">'+
       (rows || '<div class="empty-note">No income yet. Income comes from sold stock items, sales and repairs that have been picked up.</div>')+
     '</div>'+
-    '<p style="font-size:11px;color:var(--ink-soft);margin-top:8px">Sold item = sale price &minus; cost paid. Sale = sale price &minus; cost paid for items not in stock (stock items are counted above). Repair = deposit + final payment (revenue; parts and labor costs are not deducted), counted on the pickup date.</p>';
+    '<p style="font-size:11px;color:var(--ink-soft);margin-top:8px">Sold item = sale price &minus; cost paid. Sale = sale price &minus; cost paid for items not in stock (stock items are counted above). Repair = deposit + final payment minus parts spent, counted on the pickup date.</p>';
   document.getElementById('profitDialog').showModal();
 }
 
@@ -1368,8 +1369,8 @@ function renderDashboard(c){
       stat(fmtMoney(stockValue),'Stock value')+
     '</div>'+
     dashSection('Repairs &middot; '+mName,'var(--accent)',[
-      stat(fmtMoney(repairIncomeM),'Repair income this month','num-pos'),
-      stat(fmtMoney(repairIncome),'Total repair income','num-pos'),
+      stat(fmtMoney(repairIncomeM),'Repair profit this month','num-pos'),
+      stat(fmtMoney(repairIncome),'Total repair profit','num-pos'),
       stat(repairCountM,'Repairs picked up this month'),
       stat(inProgress,'In progress'),
       stat(readyPickup,'Ready for pickup'),
@@ -1472,6 +1473,7 @@ function renderJobForm(c, id){
       '<div class="field"><label>Price paid now (deposit)</label><input class="input" type="number" step="0.01" id="f_priceDeposit" value="'+(editing?job.priceDeposit:'')+'" placeholder="0.00"></div>'+
       '<div class="field"><label>Total price needed</label><input class="input" type="number" step="0.01" id="f_priceNeeded" value="'+(editing?job.priceNeeded:'')+'" placeholder="0.00"></div>'+
       '<div class="field"><label>Final payment (on pickup)</label><input class="input" type="number" step="0.01" id="f_finalPayment" value="'+(editing?(job.finalPayment||''):'')+'" placeholder="0.00"></div>'+
+      '<div class="field"><label>Money spent on parts</label><input class="input" type="number" step="0.01" id="f_partsCost" value="'+(editing?(job.partsCost||''):'')+'" placeholder="0.00"><div style="font-size:11px;color:var(--ink-soft);margin-top:4px">Optional &mdash; deducted from repair profit</div></div>'+
     '</div>'+
     '<div class="field full"><label>Notes</label><textarea class="textarea" id="f_notes" placeholder="Internal notes...">'+(editing?escapeHTML(job.notes||''):'')+'</textarea></div>'+
     '<div class="field full"><label>Photos of the item</label><div id="photoZone">'+photoStripHTML(FORM_PHOTOS,true)+'</div></div>'+
@@ -1510,6 +1512,7 @@ function saveJob(id){
     priceDeposit: document.getElementById('f_priceDeposit').value || 0,
     priceNeeded: document.getElementById('f_priceNeeded').value || 0,
     finalPayment: document.getElementById('f_finalPayment').value || 0,
+    partsCost: document.getElementById('f_partsCost').value || 0,
     notes: document.getElementById('f_notes').value.trim(),
     photos: FORM_PHOTOS.slice(),
     signatureIntake: signature
@@ -1561,6 +1564,7 @@ function renderJobDetail(c, id){
       '<div class="kv"><div class="kv-label">Paid so far</div><div class="kv-val">'+fmtMoney(job.priceDeposit)+'</div></div>'+
       '<div class="kv"><div class="kv-label">Paid on pickup</div><div class="kv-val">'+fmtMoney(job.finalPayment)+'</div></div>'+
       '<div class="kv"><div class="kv-label">Total needed</div><div class="kv-val">'+fmtMoney(job.priceNeeded)+'</div></div>'+
+      '<div class="kv"><div class="kv-label">Parts spent</div><div class="kv-val">'+fmtMoney(job.partsCost)+'</div></div>'+
       '<div class="kv"><div class="kv-label">Balance</div><div class="kv-val" style="font-weight:800">'+fmtMoney(balance)+'</div></div>'+
     '</div>'+
     '<div class="section-title">Items</div>'+
@@ -2370,7 +2374,7 @@ function renderCalendar(c){
       '<div class="stat-card"><div class="stat-num">'+fmtMoney(spentInMonth)+'</div><div class="stat-label">Parts bought</div></div>'+
     '</div>'+
     '<div class="cal-grid">'+CAL_DOW.map(function(d){ return '<div class="cal-dow">'+d+'</div>'; }).join('')+cells+'</div>'+
-    '<p style="font-size:11px;color:var(--ink-soft);margin-top:10px">Income counts sold items (sale price &minus; cost = profit) and repairs when picked up (deposit + final payment = repair revenue; parts and labor not deducted). Green amounts are income, brown is money spent on parts that day.</p>'+
+    '<p style="font-size:11px;color:var(--ink-soft);margin-top:10px">Income counts sold items (sale price &minus; cost = profit) and repairs when picked up (deposit + final payment &minus; parts spent = profit). Green amounts are income, brown is money spent on parts that day.</p>'+
   '</div>'+
   selHTML;
 }
