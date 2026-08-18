@@ -333,23 +333,126 @@ html.flipped,html.flipped body{height:100%;overflow:hidden}
 /* ---------- RESPONSIVE ---------- */
 @media (max-width:880px){
   .sidebar{display:none}
-  .form-grid,.kv-grid{grid-template-columns:1fr}
-  .stats-grid{grid-template-columns:1fr 1fr}
-  .content{padding:16px 14px 90px}
-  .topbar{padding:11px 14px}
+  .form-grid{grid-template-columns:1fr !important;gap:4px}
+  .kv-grid{grid-template-columns:1fr 1fr;gap:12px}
+  .stats-grid{grid-template-columns:1fr 1fr !important;gap:10px;margin-bottom:20px}
+  .content{padding:14px 14px calc(110px + env(safe-area-inset-bottom))}
+  .topbar{padding:10px 14px}
   .topbar-date{display:none}
-  .p-detail{margin-left:0}
+  .topbar-title{font-size:19px}
+  .topbar-right{flex-wrap:wrap;justify-content:flex-end;gap:6px}
+  .topbar-right .icon-btn{width:42px;height:42px}
+  .topbar-right .btn{min-height:42px;padding:10px 13px;font-size:14px}
+
+  /* big touch-friendly buttons */
+  .btn{min-height:46px;padding:12px 16px;font-size:15px;border-radius:10px}
+  .btn svg{width:17px;height:17px}
+  .btn-sm{min-height:38px;padding:8px 12px;font-size:13px;border-radius:8px}
+  .btn-sm svg{width:14px;height:14px}
+  .btn-block{width:100%;justify-content:center}
+  .icon-btn{width:42px;height:42px}
+  .content .btn-row{gap:10px;margin-top:4px}
+  .content .btn-row .btn{flex:1 1 42%;justify-content:center}
+
+  /* bottom nav */
   .bottomnav{
-    display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);z-index:60;
-    border-top:1px solid rgba(255,255,255,.08);padding:5px 4px calc(5px + env(safe-area-inset-bottom));
+    display:flex;position:fixed;bottom:0;left:0;right:0;z-index:60;
+    background:var(--nav-bg);border-top:1px solid rgba(255,255,255,.1);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+    overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;
   }
+  .bottomnav::-webkit-scrollbar{display:none}
   .bottomnav button{
-    flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:#a0a0a0;
-    font-size:10px;font-weight:700;padding:5px 2px;cursor:pointer;
+    flex:1 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    min-width:56px;min-height:56px;padding:4px 8px;background:none;border:none;border-radius:12px;
+    color:#9a9a9a;font-size:10px;font-weight:700;cursor:pointer;
   }
-  .bottomnav button.active{color:#fff}
-  .item-row{grid-template-columns:1fr;gap:6px;padding-bottom:8px;border-bottom:1px dashed var(--line)}
-  .remove-row{justify-self:end}
+  .bottomnav button svg{width:22px;height:22px}
+  .bottomnav button.active{color:#fff;background:rgba(255,255,255,.12)}
+
+  /* dashboard */
+  .stat-card{padding:15px 14px;border-radius:14px}
+  .stat-num{font-size:29px}
+  .stat-label{font-size:10.5px;margin-top:6px}
+  .stat-card.clickable::after{margin-top:6px}
+  .dash-section{padding:16px;border-radius:14px}
+  .dash-section-title{font-size:11.5px;margin-bottom:12px}
+  .dash-dot{width:9px;height:9px}
+
+  /* stub rows */
+  .stub{padding:15px 16px;border-radius:14px}
+  .stub-title{font-size:15.5px}
+  .stub-meta{font-size:13.5px;margin-top:4px}
+  .stub-price{font-size:16px}
+  .stub-num{font-size:10.5px;padding:3px 9px}
+
+  /* forms */
+  .field{margin-bottom:16px}
+  .field label{font-size:12px}
+  .input,.textarea,select.input{font-size:17px;padding:13px 14px;border-radius:10px;min-height:52px}
+  .textarea{min-height:110px}
+  fieldset{padding:16px;border-radius:12px}
+  legend{font-size:12px}
+  .item-row{grid-template-columns:1fr;gap:6px;padding-bottom:10px;border-bottom:1px dashed var(--line)}
+  .item-row input{min-height:50px;padding:12px 14px;font-size:16px}
+  .remove-row{width:44px;height:44px;border-radius:10px;justify-self:end}
+  .photo-thumb,.photo-add{width:96px;height:96px;flex-basis:96px;border-radius:10px}
+  .photo-add{font-size:11px}
+  .photo-thumb .rm{width:24px;height:24px;font-size:13px}
+  .sig-canvas{height:180px}
+  .sig-hint{font-size:12px}
+
+  /* detail */
+  .kv{padding:12px 0}
+  .kv-label{font-size:11px}
+  .kv-val{font-size:17px}
+  .detail-title{font-size:23px}
+  .pipeline{gap:6px;margin:16px 0 18px}
+  .pipe-step{font-size:12px;padding:13px 6px;border-radius:10px}
+  .items-table th{font-size:11px;padding:0 10px 10px}
+  .items-table td{padding:13px 10px;font-size:15px}
+  .badge{font-size:12px;padding:5px 12px;border-radius:99px}
+  .gallery img{width:120px;height:120px}
+  .sig-preview{height:150px}
+
+  /* calendar */
+  .cal-day{min-height:64px;padding:6px;border-radius:10px}
+  .cal-num{font-size:14px}
+  .cal-amt{font-size:10.5px;bottom:5px;left:6px}
+  .cal-title-btn{font-size:17px;min-height:44px}
+  .cal-sel-title{font-size:16px}
+  .cal-dots span{width:7px;height:7px}
+
+  /* search / filters / people */
+  .search-row{gap:8px;margin-bottom:14px}
+  .search-row .input{max-width:none;min-height:50px}
+  .filter-chip{min-height:42px;padding:10px 16px;font-size:13px}
+  .person{padding:14px;border-radius:14px}
+  .avatar{width:44px;height:44px;flex-basis:44px;font-size:14px}
+  .p-name{font-size:16px}
+  .p-meta{font-size:13px}
+  .p-list{max-height:calc(100vh - 310px)}
+  .p-detail{margin-left:0}
+  .p-chev svg{width:20px;height:20px}
+
+  /* dialogs as bottom sheets */
+  dialog{
+    position:fixed;bottom:0;left:0;right:0;margin:0;width:100%;max-width:100%;
+    border-radius:20px 20px 0 0;max-height:92dvh;box-shadow:0 -14px 44px rgba(0,0,0,.28);
+  }
+  dialog::backdrop{background:rgba(0,0,0,.55)}
+  .modal-head{padding:20px 20px 8px;font-size:17px}
+  .modal-body{padding:14px 20px 18px}
+  .modal-foot{padding:0 20px 22px}
+  .modal-foot .btn{flex:1;justify-content:center;min-height:50px}
+  #sigExpandDialog{max-width:100%;width:100%}
+  #sigExpandDialog .sig-canvas{height:56vh}
+  #sigExpandDialog.portrait .sig-canvas{height:68vh}
+
+  /* toast sits above the bottom nav */
+  #toast{bottom:calc(80px + env(safe-area-inset-bottom));padding:13px 20px;font-size:14px;border-radius:12px;max-width:calc(100vw - 40px);text-align:center}
+
+  .stub-top{flex-wrap:wrap}
 }
 </style>
 </head>
