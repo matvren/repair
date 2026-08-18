@@ -141,7 +141,7 @@ a{color:inherit}
 .qa-repair{border-color:var(--accent);color:var(--accent)}
 .qa-purchase{border-color:#b45309;color:#b45309}
 .qa-sale{border-color:var(--good);color:var(--good)}
-.recent-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}
+.recent-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}
 .recent-sales{grid-column:1/-1}
 
 /* ---------- CALENDAR ---------- */
@@ -403,8 +403,9 @@ html.flipped,html.flipped body{height:100%;overflow:hidden}
   .dash-section{padding:16px;border-radius:16px;margin-bottom:12px}
   .dash-section-title{font-size:11.5px;margin-bottom:12px}
   .dash-dot{width:9px;height:9px}
-  .recent-grid{grid-template-columns:1fr}
+  .recent-grid{grid-template-columns:minmax(0,1fr)}
   .recent-sales{grid-column:auto}
+  .stub{min-width:0;max-width:100%}
 
   /* stub rows */
   .stub{padding:15px 16px;border-radius:14px}
