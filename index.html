@@ -128,6 +128,22 @@ a{color:inherit}
 .dash-section-title{display:flex;align-items:center;gap:9px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--ink-soft);margin-bottom:12px}
 .dash-dot{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
 
+/* ---------- DASHBOARD HERO / QUICK ACTIONS / RECENTS ---------- */
+.hero-profit{background:var(--btn-bg);color:var(--btn-ink);border-radius:var(--radius);padding:20px 22px;margin-bottom:16px;cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:opacity .15s}
+.hero-profit:hover{opacity:.9}
+.hero-top{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;opacity:.75}
+.hero-num{font-size:34px;font-weight:800;letter-spacing:-1.5px;line-height:1;color:inherit !important}
+.hero-sub{font-size:12.5px;opacity:.7;font-weight:600}
+.quick-actions{display:flex;gap:10px;margin-bottom:20px}
+.qa{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border-radius:var(--radius-sm);border:1px solid var(--line-strong);background:var(--surface);font-weight:700;font-size:13.5px;color:var(--ink);cursor:pointer;transition:border-color .15s}
+.qa:hover{border-color:var(--ink)}
+.qa svg{flex:0 0 20px}
+.qa-repair{border-color:var(--accent);color:var(--accent)}
+.qa-purchase{border-color:#b45309;color:#b45309}
+.qa-sale{border-color:var(--good);color:var(--good)}
+.recent-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}
+.recent-sales{grid-column:1/-1}
+
 /* ---------- CALENDAR ---------- */
 .cal-head{display:flex;align-items:center;gap:6px;margin-bottom:10px}
 .cal-title{font-weight:800;font-size:16px;flex:1;text-align:center}
@@ -330,16 +346,15 @@ html.flipped,html.flipped body{height:100%;overflow:hidden}
 /* ---------- PRINT ---------- */
 #printFrame{position:absolute;left:-9999px;top:0;width:480px;height:640px;border:0}
 
-/* ---------- RESPONSIVE ---------- */
+/* ---------- PHONE-FIRST ---------- */
 @media (max-width:880px){
+  html,body{overflow-x:hidden}
   .sidebar{display:none}
-  .form-grid{grid-template-columns:1fr !important;gap:4px}
-  .kv-grid{grid-template-columns:1fr 1fr;gap:12px}
-  .stats-grid{grid-template-columns:1fr 1fr !important;gap:10px;margin-bottom:20px}
-  .content{padding:14px 14px calc(110px + env(safe-area-inset-bottom))}
+  #app{display:block}
+  .content{padding:12px 14px calc(118px + env(safe-area-inset-bottom));max-width:none}
   .topbar{padding:10px 14px}
   .topbar-date{display:none}
-  .topbar-title{font-size:19px}
+  .topbar-title{font-size:18px}
   .topbar-right{flex-wrap:wrap;justify-content:flex-end;gap:6px}
   .topbar-right .icon-btn{width:42px;height:42px}
   .topbar-right .btn{min-height:42px;padding:10px 13px;font-size:14px}
@@ -370,14 +385,26 @@ html.flipped,html.flipped body{height:100%;overflow:hidden}
   .bottomnav button svg{width:22px;height:22px}
   .bottomnav button.active{color:#fff;background:rgba(255,255,255,.12)}
 
-  /* dashboard */
+  /* dashboard: hero + quick actions */
+  .hero-profit{border-radius:16px;padding:18px;margin-bottom:12px}
+  .hero-num{font-size:38px}
+  .hero-sub{font-size:12.5px}
+  .quick-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+  .qa{flex-direction:column;gap:6px;min-height:78px;border-radius:14px;font-size:12px;padding:10px 4px}
+  .qa svg{width:24px;height:24px;flex:0 0 24px}
+
+  /* grids collapse to one column */
+  .form-grid{grid-template-columns:1fr !important;gap:4px}
+  .kv-grid{grid-template-columns:1fr 1fr;gap:12px}
+  .stats-grid{grid-template-columns:1fr 1fr !important;gap:10px;margin-bottom:18px}
   .stat-card{padding:15px 14px;border-radius:14px}
-  .stat-num{font-size:29px}
-  .stat-label{font-size:10.5px;margin-top:6px}
-  .stat-card.clickable::after{margin-top:6px}
-  .dash-section{padding:16px;border-radius:14px}
+  .stat-num{font-size:27px}
+  .stat-label{font-size:10px;margin-top:6px}
+  .dash-section{padding:16px;border-radius:16px;margin-bottom:12px}
   .dash-section-title{font-size:11.5px;margin-bottom:12px}
   .dash-dot{width:9px;height:9px}
+  .recent-grid{grid-template-columns:1fr}
+  .recent-sales{grid-column:auto}
 
   /* stub rows */
   .stub{padding:15px 16px;border-radius:14px}
@@ -385,6 +412,7 @@ html.flipped,html.flipped body{height:100%;overflow:hidden}
   .stub-meta{font-size:13.5px;margin-top:4px}
   .stub-price{font-size:16px}
   .stub-num{font-size:10.5px;padding:3px 9px}
+  .stub-top{flex-wrap:wrap}
 
   /* forms */
   .field{margin-bottom:16px}
@@ -450,9 +478,7 @@ html.flipped,html.flipped body{height:100%;overflow:hidden}
   #sigExpandDialog.portrait .sig-canvas{height:68vh}
 
   /* toast sits above the bottom nav */
-  #toast{bottom:calc(80px + env(safe-area-inset-bottom));padding:13px 20px;font-size:14px;border-radius:12px;max-width:calc(100vw - 40px);text-align:center}
-
-  .stub-top{flex-wrap:wrap}
+  #toast{bottom:calc(82px + env(safe-area-inset-bottom));padding:13px 20px;font-size:14px;border-radius:12px;max-width:calc(100vw - 40px);text-align:center}
 }
 </style>
 </head>
@@ -1516,11 +1542,15 @@ function renderDashboard(c){
   }
 
   c.innerHTML = ''+
-    '<div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">'+
-      '<div class="stat-card clickable" onclick="showProfitDialog()"><div class="stat-num '+(tp>=0?'num-pos':'num-neg')+'">'+fmtMoney(tp)+'</div><div class="stat-label">Gross profit (all)</div></div>'+
-      stat(fmtMoney(sellProfit),'Profit from sells','num-pos')+
-      stat(fmtMoney(purSpent),'Spent on purchases','num-neg')+
-      stat(fmtMoney(stockValue),'Stock value')+
+    '<div class="hero-profit" onclick="showProfitDialog()">'+
+      '<div class="hero-top"><span class="hero-label">Gross profit</span><span class="hero-icon">'+icon('right',16)+'</span></div>'+
+      '<div class="hero-num '+(tp>=0?'num-pos':'num-neg')+'">'+fmtMoney(tp)+'</div>'+
+      '<div class="hero-sub">'+fmtMoney(sellProfit)+' from sells &middot; '+fmtMoney(purSpent)+' spent on purchases</div>'+
+    '</div>'+
+    '<div class="quick-actions">'+
+      '<button class="qa qa-repair" onclick="navigate(\'jobNew\')">'+icon('wrench',20)+'<span>New Repair</span></button>'+
+      '<button class="qa qa-purchase" onclick="navigate(\'purchaseNew\')">'+icon('cart',20)+'<span>New Purchase</span></button>'+
+      '<button class="qa qa-sale" onclick="navigate(\'saleNew\')">'+icon('tag',20)+'<span>New Sale</span></button>'+
     '</div>'+
     dashSection('Repairs &middot; '+mName,'var(--accent)',[
       stat(fmtMoney(repairIncomeM),'Repair profit this month','num-pos'),
@@ -1542,14 +1572,14 @@ function renderDashboard(c){
       stat(purCountM,'Purchases this month'),
       stat(todayPur,'Purchases today')
     ])+
-    '<div class="form-grid">'+
+    '<div class="recent-grid">'+
       '<div><div class="section-title">Recent repair jobs<a onclick="navigate(\'jobsList\')">View all</a></div>'+
         '<div class="stub-list">'+(recentJobs.length? recentJobs.map(jobStubHTML).join('') : emptyNote('No repair jobs yet.'))+'</div></div>'+
       '<div><div class="section-title">Recent purchases<a onclick="navigate(\'purchasesList\')">View all</a></div>'+
         '<div class="stub-list">'+(recentPur.length? recentPur.map(purStubHTML).join('') : emptyNote('No purchases yet.'))+'</div></div>'+
-    '</div>'+
-    '<div class="section-title" style="margin-top:24px">Recent sales<a onclick="navigate(\'sellsList\')">View all</a></div>'+
-    '<div class="stub-list">'+(recentSales.length? recentSales.map(saleStubHTML).join('') : emptyNote('No sales yet.'))+'</div>';
+      '<div class="recent-sales"><div class="section-title">Recent sales<a onclick="navigate(\'sellsList\')">View all</a></div>'+
+        '<div class="stub-list">'+(recentSales.length? recentSales.map(saleStubHTML).join('') : emptyNote('No sales yet.'))+'</div></div>'+
+    '</div>';
 }
 function emptyNote(t){ return '<div class="card card-pad empty-note">'+t+'</div>'; }
 
