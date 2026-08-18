@@ -114,6 +114,8 @@ a{color:inherit}
 .btn-block{width:100%;justify-content:center}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .icon-btn{width:34px;height:34px;padding:0;justify-content:center}
+.only-mobile{display:none !important}
+.dash-top-actions{display:none}
 
 /* ---------- CARDS / STATS ---------- */
 .stats-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:24px}
@@ -365,7 +367,8 @@ html.flipped,html.flipped body{height:100%;overflow:hidden}
   .btn-sm{min-height:38px;padding:8px 12px;font-size:13px;border-radius:8px}
   .btn-sm svg{width:14px;height:14px}
   .btn-block{width:100%;justify-content:center}
-  .icon-btn{width:42px;height:42px}
+.icon-btn{width:42px;height:42px}
+  .only-mobile{display:flex !important}
   .content .btn-row{gap:10px;margin-top:4px}
   .content .btn-row .btn{flex:1 1 42%;justify-content:center}
 
@@ -1507,7 +1510,7 @@ function render(){
 
 /* ============================= DASHBOARD ============================= */
 function renderDashboard(c){
-  setTopbar('Dashboard','','<button class="btn btn-primary" onclick="navigate(\'jobNew\')">'+icon('plus',15)+'New Repair</button><button class="btn" onclick="navigate(\'purchaseNew\')">'+icon('plus',15)+'New Purchase</button><button class="btn" onclick="navigate(\'saleNew\')">'+icon('plus',15)+'New Sale</button>');
+  setTopbar('Dashboard','','<span class="dash-top-actions"><button class="btn btn-primary" onclick="navigate(\'jobNew\')">'+icon('plus',15)+'New Repair</button><button class="btn" onclick="navigate(\'purchaseNew\')">'+icon('plus',15)+'New Purchase</button><button class="btn" onclick="navigate(\'saleNew\')">'+icon('plus',15)+'New Sale</button></span>');
   var inProgress = DB.jobs.filter(function(j){ return j.status==='progress'; }).length;
   var readyPickup = DB.jobs.filter(function(j){ return j.status==='fixed'; }).length;
   var todayPur = DB.purchases.filter(function(p){ return p.date===todayStr(); }).length;
@@ -1731,6 +1734,11 @@ function renderJobDetail(c, id){
 
   c.innerHTML = ''+
   '<button class="btn btn-ghost btn-sm" style="margin-bottom:12px;padding-left:0" onclick="navigate(\'jobsList\')">'+icon('back',14)+'Back to jobs</button>'+
+  '<div class="only-mobile btn-row" style="margin-bottom:12px">'+
+    '<button class="btn" onclick="printJob(\''+id+'\')">'+icon('printer',15)+'Print</button>'+
+    '<button class="btn" onclick="navigate(\'jobEdit\',\''+id+'\')">'+icon('edit',15)+'Edit</button>'+
+    '<button class="btn" onclick="deleteJob(\''+id+'\')">'+icon('trash',15)+'Delete</button>'+
+  '</div>'+
   '<div class="card card-pad">'+
     '<div class="detail-header">'+
       '<div><div class="detail-title">'+escapeHTML(job.customerName)+'</div><div class="detail-sub">RJ-'+pad4(job.number)+' &middot; '+escapeHTML(job.phone||'no phone on file')+'</div></div>'+
@@ -1883,6 +1891,11 @@ function renderPurchaseDetail(c, id){
 
   c.innerHTML = ''+
   '<button class="btn btn-ghost btn-sm" style="margin-bottom:12px;padding-left:0" onclick="navigate(\'purchasesList\')">'+icon('back',14)+'Back to purchases</button>'+
+  '<div class="only-mobile btn-row" style="margin-bottom:12px">'+
+    '<button class="btn" onclick="printPurchase(\''+id+'\')">'+icon('printer',15)+'Print</button>'+
+    '<button class="btn" onclick="navigate(\'purchaseEdit\',\''+id+'\')">'+icon('edit',15)+'Edit</button>'+
+    '<button class="btn" onclick="deletePurchase(\''+id+'\')">'+icon('trash',15)+'Delete</button>'+
+  '</div>'+
   '<div class="card card-pad">'+
     '<div class="detail-header">'+
       '<div><div class="detail-title">'+escapeHTML(pur.sellerName)+'</div><div class="detail-sub">PR-'+pad4(pur.number)+' &middot; ID '+escapeHTML(pur.sellerId)+'</div></div>'+
@@ -2131,6 +2144,11 @@ function renderSaleDetail(c, id){
 
   c.innerHTML = ''+
   '<button class="btn btn-ghost btn-sm" style="margin-bottom:12px;padding-left:0" onclick="navigate(\'sellsList\')">'+icon('back',14)+'Back to sells</button>'+
+  '<div class="only-mobile btn-row" style="margin-bottom:12px">'+
+    '<button class="btn" onclick="printSale(\''+id+'\')">'+icon('printer',15)+'Print</button>'+
+    '<button class="btn" onclick="navigate(\'saleEdit\',\''+id+'\')">'+icon('edit',15)+'Edit</button>'+
+    '<button class="btn" onclick="deleteSale(\''+id+'\')">'+icon('trash',15)+'Delete</button>'+
+  '</div>'+
   '<div class="card card-pad">'+
     '<div class="detail-header">'+
       '<div><div class="detail-title">'+escapeHTML(sale.customerName)+'</div><div class="detail-sub">SL-'+pad4(sale.number)+' &middot; '+escapeHTML(sale.phone||'no phone on file')+'</div></div>'+
