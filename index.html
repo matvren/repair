@@ -587,6 +587,20 @@ html.flipped,html.flipped body{height:100%;overflow:hidden}
   </div>
 </dialog>
 
+<dialog id="cloudViewerDialog">
+  <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between">
+    <span>Cloud data manager</span>
+    <button class="btn btn-sm" onclick="document.getElementById('cloudViewerDialog').close()">Close</button>
+  </div>
+  <div class="modal-body" id="cloudViewerBody" style="max-height:65vh;overflow-y:auto">
+    <p style="font-size:13px;color:var(--ink-soft)">Loading cloud data...</p>
+  </div>
+  <div class="modal-foot" style="justify-content:space-between">
+    <button class="btn" id="cloudViewerDeleteBtn" style="display:none" onclick="cloudDeleteSelected()">Delete selected</button>
+    <button class="btn btn-primary" onclick="document.getElementById('cloudViewerDialog').close()">Done</button>
+  </div>
+</dialog>
+
 </div>
 
 <div id="toast"></div>
@@ -958,6 +972,141 @@ function syncNow(silent){
   }).catch(function(err){
     __sbBusy = false;
     if(!silent) toast(err.message || 'Sync failed');
+  });
+}
+
+/* ============================= CLOUD DATA VIEWER ============================= */
+var __cloudData = null;
+var __cloudSelected = {};
+function openCloudViewer(){
+  if(!SB_SESSION || !SB_SESSION.access_token){ toast('Not signed in'); return; }
+  document.getElementById('cloudViewerDialog').showModal();
+  document.getElementById('cloudViewerBody').innerHTML = '<p style="font-size:13px;color:var(--ink-soft)">Loading cloud data...</p>';
+  __cloudData = null;
+  __cloudSelected = {};
+  sbApi('/rest/v1/' + SB_TABLE + '?select=payload,updated_at&limit=1').then(function(res){
+    if(!res.ok || !res.body || !res.body[0] || !res.body[0].payload) throw 0;
+    __cloudData = normalizeDB(res.body[0].payload);
+    renderCloudViewer();
+  }).catch(function(){
+    document.getElementById('cloudViewerBody').innerHTML = '<p style="font-size:13px;color:var(--bad)">Failed to load cloud data.</p>';
+  });
+}
+function renderCloudViewer(){
+  if(!__cloudData) return;
+  var body = document.getElementById('cloudViewerBody');
+  var jobs = __cloudData.jobs || [];
+  var purchases = __cloudData.purchases || [];
+  var sales = __cloudData.sales || [];
+  var stock = __cloudData.stock || [];
+  var selCount = Object.keys(__cloudSelected).length;
+  var delBtn = document.getElementById('cloudViewerDeleteBtn');
+  if(delBtn) delBtn.style.display = selCount > 0 ? '' : 'none';
+  if(delBtn && selCount > 0) delBtn.innerHTML = icon('trash',15)+'Delete selected ('+selCount+')';
+  var html = '';
+  html += '<p style="font-size:12px;color:var(--ink-faint);margin-bottom:14px">'+jobs.length+' repairs, '+purchases.length+' purchases, '+sales.length+' sales, '+stock.length+' stock items</p>';
+  html += '<div style="margin-bottom:10px"><button class="btn btn-sm" onclick="cloudSelectAll()">Select all</button> <button class="btn btn-sm" onclick="cloudDeselectAll()">Deselect all</button></div>';
+  if(jobs.length){
+    html += '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-soft);margin-bottom:8px">Repair jobs ('+jobs.length+')</div>';
+    jobs.forEach(function(j){
+      var sel = __cloudSelected['job_'+j.id] ? ' active' : '';
+      var title = j.customerName || 'Unnamed';
+      var num = j.number || '';
+      var status = j.status || '';
+      html += '<div class="stub'+sel+'" onclick="cloudToggle(\'job_'+j.id+'\')" style="cursor:pointer;border-color:'+(sel?'var(--accent)':'var(--line)')+'"><div class="stub-main"><div class="stub-top"><span class="stub-num">'+escapeHTML(num)+'</span><span class="stub-title">'+escapeHTML(title)+'</span></div><div class="stub-meta">'+escapeHTML(status)+'</div></div><div class="stub-price">'+escapeHTML(status)+'</div></div>';
+    });
+    html += '</div>';
+  }
+  if(purchases.length){
+    html += '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-soft);margin-bottom:8px">Purchases ('+purchases.length+')</div>';
+    purchases.forEach(function(p){
+      var sel = __cloudSelected['purch_'+p.id] ? ' active' : '';
+      var title = p.sellerName || 'Unnamed seller';
+      var num = p.number || '';
+      var total = (p.items||[]).reduce(function(s,i){return s+(Number(i.price)||0);},0);
+      html += '<div class="stub'+sel+'" onclick="cloudToggle(\'purch_'+p.id+'\')" style="cursor:pointer;border-color:'+(sel?'var(--accent)':'var(--line)')+'"><div class="stub-main"><div class="stub-top"><span class="stub-num">'+escapeHTML(num)+'</span><span class="stub-title">'+escapeHTML(title)+'</span></div><div class="stub-meta">'+escapeHTML(p.date||'')+'</div></div><div class="stub-price">'+fmtMoney(total)+'</div></div>';
+    });
+    html += '</div>';
+  }
+  if(sales.length){
+    html += '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-soft);margin-bottom:8px">Sales ('+sales.length+')</div>';
+    sales.forEach(function(s){
+      var sel = __cloudSelected['sale_'+s.id] ? ' active' : '';
+      var title = s.customerName || 'Unnamed customer';
+      var num = s.number || '';
+      var total = (s.items||[]).reduce(function(a,i){return a+(Number(i.price)||0);},0);
+      html += '<div class="stub'+sel+'" onclick="cloudToggle(\'sale_'+s.id+'\')" style="cursor:pointer;border-color:'+(sel?'var(--accent)':'var(--line)')+'"><div class="stub-main"><div class="stub-top"><span class="stub-num">'+escapeHTML(num)+'</span><span class="stub-title">'+escapeHTML(title)+'</span></div><div class="stub-meta">'+escapeHTML(s.date||'')+'</div></div><div class="stub-price">'+fmtMoney(total)+'</div></div>';
+    });
+    html += '</div>';
+  }
+  if(stock.length){
+    html += '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-soft);margin-bottom:8px">Stock ('+stock.length+')</div>';
+    stock.forEach(function(st){
+      var sel = __cloudSelected['stock_'+st.pkey] ? ' active' : '';
+      var title = st.name || 'Unnamed item';
+      var num = st.purchaseNumber || '';
+      html += '<div class="stub'+sel+'" onclick="cloudToggle(\'stock_'+st.pkey+'\')" style="cursor:pointer;border-color:'+(sel?'var(--accent)':'var(--line)')+'"><div class="stub-main"><div class="stub-top"><span class="stub-num">'+escapeHTML(num)+'</span><span class="stub-title">'+escapeHTML(title)+'</span></div><div class="stub-meta">'+escapeHTML(st.status||'')+'</div></div><div class="stub-price">'+fmtMoney(Number(st.pricePaid)||0)+'</div></div>';
+    });
+    html += '</div>';
+  }
+  if(!jobs.length && !purchases.length && !sales.length && !stock.length){
+    html += '<p style="font-size:13px;color:var(--ink-faint);font-style:italic">Cloud is empty — no records found.</p>';
+  }
+  body.innerHTML = html;
+}
+function cloudToggle(key){
+  if(__cloudSelected[key]) delete __cloudSelected[key];
+  else __cloudSelected[key] = true;
+  renderCloudViewer();
+}
+function cloudSelectAll(){
+  if(!__cloudData) return;
+  (__cloudData.jobs||[]).forEach(function(j){ __cloudSelected['job_'+j.id] = true; });
+  (__cloudData.purchases||[]).forEach(function(p){ __cloudSelected['purch_'+p.id] = true; });
+  (__cloudData.sales||[]).forEach(function(s){ __cloudSelected['sale_'+s.id] = true; });
+  (__cloudData.stock||[]).forEach(function(st){ __cloudSelected['stock_'+st.pkey] = true; });
+  renderCloudViewer();
+}
+function cloudDeselectAll(){ __cloudSelected = {}; renderCloudViewer(); }
+function cloudDeleteSelected(){
+  if(!__cloudData) return;
+  var n = Object.keys(__cloudSelected).length;
+  if(!n) return;
+  if(!confirm('Delete '+n+' selected record(s) from the cloud?')) return;
+  if(!confirm('Are you sure? This cannot be undone.')) return;
+  var ids = Object.keys(__cloudSelected);
+  ids.forEach(function(k){
+    if(k.indexOf('job_') === 0){
+      var id = k.replace('job_','');
+      __cloudData.jobs = (__cloudData.jobs||[]).filter(function(j){ return j.id !== id; });
+    } else if(k.indexOf('purch_') === 0){
+      var id = k.replace('purch_','');
+      __cloudData.purchases = (__cloudData.purchases||[]).filter(function(p){ return p.id !== id; });
+    } else if(k.indexOf('sale_') === 0){
+      var id = k.replace('sale_','');
+      __cloudData.sales = (__cloudData.sales||[]).filter(function(s){ return s.id !== id; });
+    } else if(k.indexOf('stock_') === 0){
+      var id = k.replace('stock_','');
+      __cloudData.stock = (__cloudData.stock||[]).filter(function(st){ return st.pkey !== id; });
+    }
+  });
+  __cloudSelected = {};
+  __cloudData.updatedAt = Date.now();
+  var payload = JSON.stringify(__cloudData);
+  if(payload.length > 1800000){ toast('Data too large to save'); return; }
+  var row = { user_id: SB_SESSION.user.id, payload: __cloudData, updated_at: new Date().toISOString() };
+  document.getElementById('cloudViewerBody').innerHTML = '<p style="font-size:13px;color:var(--ink-soft)">Saving changes...</p>';
+  sbApi('/rest/v1/' + SB_TABLE + '?on_conflict=user_id', {
+    method: 'POST',
+    headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(row)
+  }).then(function(res){
+    if(!res.ok && res.status !== 201) throw 0;
+    toast('Deleted '+n+' record(s) from cloud');
+    renderCloudViewer();
+  }).catch(function(){
+    toast('Failed to save changes');
+    renderCloudViewer();
   });
 }
 
@@ -2435,6 +2584,7 @@ function renderSettings(c){
         '<div class="section-title" style="margin-top:18px">Cloud data</div>'+
         '<div class="btn-row">'+
           '<button class="btn" onclick="sbDownloadCloudBackup()">Download cloud backup (.json)</button>'+
+          '<button class="btn" onclick="openCloudViewer()">'+icon('search',15)+'Manage cloud data</button>'+
           '<button class="btn" onclick="sbRestoreFromCloud()">Restore from cloud</button>'+
           '<button class="btn" onclick="sbDeleteCloudSave()">'+icon('trash',15)+'Delete cloud save</button>'+
         '</div>'
