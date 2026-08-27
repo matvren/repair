@@ -812,9 +812,11 @@ function sbRestoreSession(){
   sbApi('/rest/v1/' + SB_TABLE + '?select=payload,updated_at&limit=1').then(function(res){
     if(!res.ok){ throw new Error('session'); }
     var row = (res.body && res.body[0]) ? res.body[0] : null;
-    var remoteAt = row ? new Date(row.updated_at).getTime() : 0;
-    var localAt = Number(DB.updatedAt) || 0;
-    if(row && remoteAt > localAt && !(localAt === 0 && sbLocalHasData())){
+    if(row && row.payload && sbLocalHasData()){
+      DB = mergeDBs(DB, row.payload);
+      localStorage.setItem(DB_KEY, JSON.stringify(DB));
+      render();
+    } else if(row && row.payload && !sbLocalHasData()){
       DB = normalizeDB(row.payload);
       localStorage.setItem(DB_KEY, JSON.stringify(DB));
       render();
@@ -900,29 +902,59 @@ function scheduleSyncPush(){
 function sbLocalHasData(){
   return (DB.jobs && DB.jobs.length) || (DB.purchases && DB.purchases.length) || (DB.stock && DB.stock.length);
 }
+function mergeByKey(local, remote, key){
+  var map = {};
+  var result = [];
+  (remote || []).forEach(function(r){ if(r && r[key]) map[r[key]] = r; });
+  (local || []).forEach(function(l){
+    if(l && l[key]){
+      if(map[l[key]]){
+        var merged = Object.assign({}, map[l[key]], l);
+        if(Array.isArray(l.items)) merged.items = l.items;
+        if(Array.isArray(l.photos) && l.photos.length) merged.photos = l.photos;
+        if(l.signatureIntake) merged.signatureIntake = l.signatureIntake;
+        if(l.signaturePickup) merged.signaturePickup = l.signaturePickup;
+        if(l.signature) merged.signature = l.signature;
+        result.push(merged);
+        delete map[l[key]];
+      } else {
+        result.push(l);
+      }
+    }
+  });
+  Object.keys(map).forEach(function(k){ if(map[k]) result.push(map[k]); });
+  return result;
+}
+function mergeDBs(local, remote){
+  if(!remote) return normalizeDB(local);
+  if(!local) return normalizeDB(remote);
+  var merged = normalizeDB(local);
+  merged.jobs = mergeByKey(local.jobs, remote.jobs, 'id');
+  merged.purchases = mergeByKey(local.purchases, remote.purchases, 'id');
+  merged.sales = mergeByKey(local.sales, remote.sales, 'id');
+  merged.stock = mergeByKey(local.stock, remote.stock, 'pkey');
+  var remoteSettings = remote.settings || {};
+  var localSettings = local.settings || {};
+  merged.settings.nextJob = Math.max(localSettings.nextJob || 1, remoteSettings.nextJob || 1);
+  merged.settings.nextPurchase = Math.max(localSettings.nextPurchase || 1, remoteSettings.nextPurchase || 1);
+  merged.settings.nextSale = Math.max(localSettings.nextSale || 1, remoteSettings.nextSale || 1);
+  return merged;
+}
 function syncNow(silent){
   if(!SB_SESSION || !SB_SESSION.access_token){ if(!silent) toast('Not signed in'); return; }
   if(__sbBusy) return;
   __sbBusy = true;
   sbPull().then(function(row){
-    var remoteAt = row ? new Date(row.updated_at).getTime() : 0;
-    var localAt = Number(DB.updatedAt) || 0;
-    var adopt = false;
-    if(row && remoteAt > localAt){
-      adopt = !(localAt === 0 && sbLocalHasData());
-    }
-    if(adopt){
-      DB = normalizeDB(row.payload);
+    if(row && row.payload){
+      DB = mergeDBs(DB, row.payload);
       localStorage.setItem(DB_KEY, JSON.stringify(DB));
-      if(!silent) toast('Downloaded latest data from cloud');
-      render();
-      __sbBusy = false;
-    } else {
-      sbPush().then(function(){
-        if(!silent) toast('Synced to cloud');
-        __sbBusy = false;
-      }).catch(function(err){ __sbBusy = false; if(!silent) toast(err.message || 'Sync failed'); });
     }
+    DB.updatedAt = Date.now();
+    localStorage.setItem(DB_KEY, JSON.stringify(DB));
+    sbPush().then(function(){
+      if(!silent) toast('Synced to cloud');
+      __sbBusy = false;
+    }).catch(function(err){ __sbBusy = false; if(!silent) toast(err.message || 'Sync failed'); });
   }).catch(function(err){
     __sbBusy = false;
     if(!silent) toast(err.message || 'Sync failed');
